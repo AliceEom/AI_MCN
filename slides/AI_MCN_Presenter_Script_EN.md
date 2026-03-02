@@ -1,45 +1,55 @@
-# AI-MCN Presentation Script (15 Minutes, English)
+# AI-MCN Presentation Script (Professor Guide Aligned, 15 Minutes)
 
-## 0:00-2:00 | Speaker A: Problem and Scope
-- Introduce the business problem: influencer selection is manual, slow, and often biased.
-- Introduce BOJ scenario and campaign objective.
-- Clarify prototype scope and why it is realistic for a class quarter.
+## 0:00-1:00 | Speaker A | Title and Team
+- Introduce project title, team members, and client scenario.
+- One-line value proposition: "We built an AI system that helps brands replace manual MCN-style influencer matching."
 
-## 2:00-5:30 | Speaker B: Data and Pipeline
-- Explain dataset scale: 42,750 videos, 1,089 channels.
-- Walk through hybrid pipeline:
-  - filtering and aggregation,
-  - network scoring,
-  - text + semantic alignment,
-  - ML benchmark,
-  - ranking and guardrails.
-- Emphasize explainability and sanity checks.
+## 1:00-3:30 | Speaker A | Business Context and Problem
+- Explain current MCN workflow and why brands pay for matching support.
+- State pain points: opaque logic, mismatch risk, high campaign cost.
+- Define decision to improve: from popularity-led selection to evidence-based shortlist.
 
-## 5:30-8:30 | Speaker B: Evaluation
-- Show model benchmark slide:
-  - LightGBM best RMSE 0.00996 vs baseline 0.03800.
-- Explain practical meaning of 73.8% RMSE reduction.
-- Show SHAP slide and connect to stakeholder trust.
+## 3:30-5:30 | Speaker A | Why Beauty and Why BOJ
+- Use market context briefly: influencer spend growth + beauty growth + digital commerce relevance.
+- Explain BOJ as a strong demonstration case (viral sunscreen + U.S. market activation).
+- Transition: "Now we show how our data supports this case."
 
-## 8:30-12:30 | Speaker C: Live Demo
-- In app:
-  1. Enter campaign input.
-  2. Run and show analyzing flow.
-  3. Show Top-N recommendations and rationale cards.
-  4. Change ranking strategy and diversity settings.
-  5. Show Text Intelligence and ROI Lab.
-  6. Show ML Studio and memo export.
+## 5:30-7:30 | Speaker B | Data and Features
+- Present data source and scale.
+- Cover preprocessing: dedupe, beauty filtering, channel aggregation.
+- Show one to two EDA visuals and what we learned from them.
 
-## 12:30-14:00 | Speaker C: Business Impact and Caveats
-- Summarize ROI scenario output (1.14x expected ROAS).
-- Highlight bias guardrail and evidence penalty.
-- State limitations honestly (pre-collected data, scenario-based ROI).
-- Share future roadmap.
+## 7:30-10:30 | Speaker B | AI/ML Approach (Class-Centered)
+- Emphasize class concepts:
+  1) SNA for influence structure,
+  2) TF-IDF/semantic fit for campaign relevance,
+  3) regression suite + GroupKFold CV,
+  4) SHAP for explainability.
+- Explain why hybrid outperforms single-signal alternatives.
+- Show model benchmark and baseline improvement.
 
-## 14:00-15:00 | All: Q&A
-- Possible likely questions:
-  - How is this better than follower-count filtering?
-  - Is the model overfitting?
-  - How would this run on live data weekly?
-  - What if the campaign objective changes to conversions only?
+## 10:30-13:30 | Speaker C | Live Prototype Demo
+- Walk through input -> output:
+  1) campaign brief input,
+  2) Top-N influencer results,
+  3) rationale/risk panel,
+  4) network/text/ML/ROI tabs.
+- Highlight two concrete use cases:
+  - BOJ launch planning,
+  - CeraVe benchmark calibration.
 
+## 13:30-14:30 | Speaker C | Impact, Limitations, Next Steps
+- Impact: faster shortlist, better transparency, less mismatch risk.
+- Limitations: pre-collected data, scenario-based ROI, remaining cluster concentration.
+- Next steps: live connectors, fairness constraints, real pilot calibration.
+
+## 14:30-15:00 | Speaker C (or All) | AI Tools Note and Q&A
+- Briefly state how AI tools were used (ideation, coding, debugging, docs).
+- Clarify human ownership of framing, evaluation, and business recommendations.
+- Open Q&A.
+
+## Likely Q&A prompts to prepare
+- "How does this reduce dependence on MCNs in practice?"
+- "How do you avoid recommending flashy but low-quality creators?"
+- "What changes if campaign objective is conversion only?"
+- "How would this run as a weekly production workflow?"

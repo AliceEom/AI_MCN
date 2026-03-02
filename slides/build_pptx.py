@@ -19,24 +19,19 @@ SUMMARY_JSON = ROOT / "artifacts" / "reports" / "presentation_summary_boj.json"
 OUT_PPTX = SLIDES_DIR / "AI_MCN_Final_Presentation_EN.pptx"
 
 
-def add_title(
-    slide,
-    title: str,
-    subtitle: str | None = None,
-    accent: bool = True,
-) -> None:
+def add_title(slide, title: str, subtitle: str | None = None, accent: bool = True) -> None:
     title_box = slide.shapes.add_textbox(Inches(0.65), Inches(0.35), Inches(12.1), Inches(1.0))
     tf = title_box.text_frame
     tf.clear()
     p = tf.paragraphs[0]
     p.text = title
-    p.font.size = Pt(34)
+    p.font.size = Pt(32)
     p.font.bold = True
     p.font.name = "Aptos Display"
     p.font.color.rgb = RGBColor(15, 44, 89)
 
     if subtitle:
-        sub_box = slide.shapes.add_textbox(Inches(0.72), Inches(1.3), Inches(11.8), Inches(0.65))
+        sub_box = slide.shapes.add_textbox(Inches(0.72), Inches(1.28), Inches(11.8), Inches(0.68))
         stf = sub_box.text_frame
         stf.clear()
         sp = stf.paragraphs[0]
@@ -46,7 +41,7 @@ def add_title(
         sp.font.color.rgb = RGBColor(74, 95, 128)
 
     if accent:
-        line = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.62), Inches(1.95), Inches(2.6), Inches(0.08))
+        line = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.62), Inches(1.92), Inches(2.9), Inches(0.08))
         line.fill.solid()
         line.fill.fore_color.rgb = RGBColor(26, 125, 188)
         line.line.fill.background()
@@ -59,7 +54,7 @@ def add_bullets(
     width: float,
     height: float,
     bullets: list[str],
-    font_size: int = 22,
+    font_size: int = 21,
 ) -> None:
     box = slide.shapes.add_textbox(Inches(left), Inches(top), Inches(width), Inches(height))
     tf = box.text_frame
@@ -72,7 +67,7 @@ def add_bullets(
         p.font.size = Pt(font_size)
         p.font.name = "Aptos"
         p.font.color.rgb = RGBColor(28, 45, 70)
-        p.space_after = Pt(9)
+        p.space_after = Pt(8)
 
 
 def add_card(
@@ -83,6 +78,8 @@ def add_card(
     height: float,
     title: str,
     bullets: list[str],
+    title_size: int = 18,
+    body_size: int = 15,
 ) -> None:
     rect = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(left), Inches(top), Inches(width), Inches(height))
     rect.fill.solid()
@@ -90,24 +87,24 @@ def add_card(
     rect.line.color.rgb = RGBColor(205, 220, 238)
     rect.line.width = Pt(1.25)
 
-    title_box = slide.shapes.add_textbox(Inches(left + 0.22), Inches(top + 0.12), Inches(width - 0.35), Inches(0.4))
+    title_box = slide.shapes.add_textbox(Inches(left + 0.20), Inches(top + 0.12), Inches(width - 0.30), Inches(0.38))
     ttf = title_box.text_frame
     ttf.clear()
     tp = ttf.paragraphs[0]
     tp.text = title
     tp.font.bold = True
-    tp.font.size = Pt(19)
+    tp.font.size = Pt(title_size)
     tp.font.color.rgb = RGBColor(19, 58, 102)
     tp.font.name = "Aptos"
 
     add_bullets(
         slide,
-        left=left + 0.2,
-        top=top + 0.52,
-        width=width - 0.35,
-        height=height - 0.62,
+        left=left + 0.18,
+        top=top + 0.48,
+        width=width - 0.28,
+        height=height - 0.58,
         bullets=bullets,
-        font_size=16,
+        font_size=body_size,
     )
 
 
@@ -166,67 +163,90 @@ def compute_keyword_snapshot() -> dict[str, object]:
     }
 
 
+def _fmt_kw(kw_snapshot: dict[str, object], keyword: str) -> str:
+    row = (kw_snapshot.get("keywords") or {}).get(keyword, {})
+    return f"{keyword}: {int(row.get('videos', 0)):,} videos | {int(row.get('channels', 0)):,} channels"
+
+
 def build() -> Path:
     if not SUMMARY_JSON.exists():
         raise FileNotFoundError(f"Missing summary file: {SUMMARY_JSON}")
     summary = json.loads(SUMMARY_JSON.read_text(encoding="utf-8"))
 
-    top10 = summary.get("top10", [])
-    roi = summary.get("roi", {})
-    bench = summary.get("benchmark", {})
     dataset = summary.get("dataset", {})
-    bias = summary.get("bias_report", {})
+    roi = summary.get("roi", {})
     ml_table = summary.get("ml_table", [])
+    top10 = summary.get("top10", [])
     kw_snapshot = compute_keyword_snapshot()
 
     best_model = summary.get("ml_best_model", "N/A")
     baseline_rmse = next((x.get("rmse_mean", 0.0) for x in ml_table if x.get("model") == "BaselineMedian"), 0.0)
     best_rmse = next((x.get("rmse_mean", 0.0) for x in ml_table if x.get("model") == best_model), 0.0)
-    gain_pct = 0.0
-    if baseline_rmse and best_rmse:
-        gain_pct = (baseline_rmse - best_rmse) / baseline_rmse * 100.0
+    gain_pct = ((baseline_rmse - best_rmse) / baseline_rmse * 100.0) if baseline_rmse else 0.0
 
     prs = Presentation()
     prs.slide_width = Inches(13.333)
     prs.slide_height = Inches(7.5)
     blank = prs.slide_layouts[6]
 
-    # 1
+    # 1. Title and team
     slide = prs.slides.add_slide(blank)
     add_title(
         slide,
-        "AI-MCN: AI-Augmented Influencer Matching for Beauty Campaigns",
-        "MSIS 521 Course Project | Team Presentation (15 minutes)",
+        "AI-MCN: Replacing Traditional MCN Matching with an AI Decision System",
+        "MSIS 521 Course Project | 15-minute Presentation",
     )
     add_bullets(
         slide,
         0.72,
         2.2,
         11.9,
-        2.8,
+        2.5,
         [
-            "Case: Beauty of Joseon (BOJ), U.S. sunscreen campaign scenario",
-            "Prototype: Streamlit app + modular Python AI pipeline",
-            "Output: Top-N recommendations, model benchmark, explainability, ROI simulator, memo",
+            "Client case: Beauty of Joseon (BOJ), U.S. sunscreen campaign",
+            "Goal: help brands find best-fit influencers directly with transparent AI logic",
+            "Team: [Add names]",
         ],
-        font_size=24,
+        font_size=23,
     )
-    add_footer(slide, "AI-MCN | MSIS 521")
+    add_footer(slide, "Section 1 | Title and Team")
 
-    # 2
+    # 2. Agenda and timing
     slide = prs.slides.add_slide(blank)
-    add_title(slide, "Problem and Scope")
+    add_title(slide, "Agenda and Timing (Professor Guide)")
+    add_bullets(
+        slide,
+        0.82,
+        2.1,
+        12.0,
+        4.8,
+        [
+            "1) Title and team (1 min)",
+            "2) Business context and problem (2-3 min)",
+            "3) Data and features (1-3 min)",
+            "4) AI/ML approach (3-4 min)",
+            "5) Prototype demo (3-4 min)",
+            "6) Impact, limitations, next steps (2-3 min)",
+            "7) How we used AI tools (1-2 min)",
+        ],
+        font_size=21,
+    )
+    add_footer(slide, "Section 2 | Roadmap")
+
+    # 3. Business context
+    slide = prs.slides.add_slide(blank)
+    add_title(slide, "Business Context and Problem")
     add_card(
         slide,
         0.65,
         2.0,
         5.95,
-        4.7,
-        "Business Problem",
+        4.8,
+        "Current MCN-Style Workflow",
         [
-            "Influencer discovery is often manual, slow, and popularity-biased.",
-            "Teams need transparent, evidence-based creator selection.",
-            "Campaign planning needs measurable support, not only intuition.",
+            "MCNs aggregate influencer data and broker brand-creator matching.",
+            "Brands pay agency/management fees plus campaign budget.",
+            "Matching logic is often hard to audit for brand teams.",
         ],
     )
     add_card(
@@ -234,131 +254,126 @@ def build() -> Path:
         6.72,
         2.0,
         5.95,
-        4.7,
-        "Scope Discipline",
+        4.8,
+        "Decision We Improve",
         [
-            "In-scope: end-to-end matching prototype and live demo.",
-            "Out-of-scope: full production MLOps and multi-platform live ingestion.",
-            "Quarter-feasible scope with meaningful technical depth.",
+            "From manual or popularity-led creator selection",
+            "To evidence-based, product-specific creator ranking",
+            "Goal: reduce expensive mismatch risk before launch",
         ],
     )
-    add_footer(slide, "Rubric 1: Topic choice, scope, interest")
+    add_footer(slide, "Section 3 | Context and Decision")
 
-    # 3
+    # 4. Why now / market evidence
     slide = prs.slides.add_slide(blank)
-    add_title(slide, "Why Beauty of Joseon? (Selection + Research)")
-    add_card(
-        slide,
-        0.65,
-        2.0,
-        5.95,
-        4.75,
-        "Why this brand for the project",
-        [
-            "Clear campaign narrative: sunscreen + lightweight skincare.",
-            "Distinct positioning for storytelling: heritage-inspired K-beauty.",
-            "Good benchmark pair with CeraVe in the same category.",
-            "Suitable for explainable matching, not only popularity ranking.",
-        ],
-    )
-    kw = kw_snapshot.get("keywords", {})
-
-    def _fmt(keyword: str) -> str:
-        row = kw.get(keyword, {})
-        return f"{keyword}: {int(row.get('videos', 0)):,} videos | {int(row.get('channels', 0)):,} channels"
-
-    add_card(
-        slide,
-        6.72,
-        2.0,
-        5.95,
-        4.75,
-            "Brand research and dataset evidence",
-        [
-            "Positioning: gentle, daily-use K-beauty skincare message.",
-            "Audience focus: sensitive/acne-aware Gen Z and Millennials.",
-            f"Dataset source: {kw_snapshot.get('source_file', 'N/A')} (n={int(kw_snapshot.get('total_videos', 0)):,} videos)",
-            _fmt("sunscreen"),
-            _fmt("spf"),
-            _fmt("beauty of joseon"),
-            _fmt("cerave"),
-        ],
-    )
-    add_footer(slide, "Brand choice is explicit, defensible, and data-backed")
-
-    # 4
-    slide = prs.slides.add_slide(blank)
-    add_title(slide, "Assignment Requirements Check")
-    rows = [
-        ("Pick a problem and client", "BOJ influencer matching scenario"),
-        ("Collect/obtain data", "Team-collected YouTube videos/channels/comments"),
-        ("Prototype in Python", "Streamlit + AI pipeline modules"),
-        ("Present process + story + demo", "This deck + live app walkthrough"),
-    ]
-    table = slide.shapes.add_table(len(rows) + 1, 2, Inches(0.8), Inches(2.0), Inches(11.9), Inches(3.9)).table
-    table.columns[0].width = Inches(4.4)
-    table.columns[1].width = Inches(7.5)
-    table.cell(0, 0).text = "Assignment Requirement"
-    table.cell(0, 1).text = "Our Implementation"
-    for i, (a, b) in enumerate(rows, start=1):
-        table.cell(i, 0).text = a
-        table.cell(i, 1).text = b
-    for r in range(len(rows) + 1):
-        for c in range(2):
-            cell = table.cell(r, c)
-            for p in cell.text_frame.paragraphs:
-                p.font.name = "Aptos"
-                p.font.size = Pt(14 if r else 15)
-                p.font.bold = r == 0
-                p.font.color.rgb = RGBColor(17, 34, 63)
-    add_footer(slide, "Assignment deliverables: code + slides")
-
-    # 5
-    slide = prs.slides.add_slide(blank)
-    add_title(slide, "Data Overview (BOJ Run)")
-    kpis = [
-        ("Videos analyzed", f"{int(dataset.get('videos_analyzed', 0)):,}"),
-        ("Channels scored", f"{int(dataset.get('channels_scored', 0)):,}"),
-        ("Default recommendations", "Top-10"),
-        ("Non-micro communities", "6"),
-    ]
-    x = 0.75
-    for label, val in kpis:
-        rect = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(x), Inches(2.25), Inches(2.95), Inches(1.55))
-        rect.fill.solid()
-        rect.fill.fore_color.rgb = RGBColor(235, 245, 255)
-        rect.line.color.rgb = RGBColor(188, 212, 239)
-        vbox = slide.shapes.add_textbox(Inches(x + 0.15), Inches(2.45), Inches(2.65), Inches(0.56))
-        vp = vbox.text_frame.paragraphs[0]
-        vp.text = val
-        vp.font.name = "Aptos Display"
-        vp.font.bold = True
-        vp.font.size = Pt(26)
-        vp.font.color.rgb = RGBColor(21, 96, 162)
-        lbox = slide.shapes.add_textbox(Inches(x + 0.15), Inches(3.05), Inches(2.65), Inches(0.4))
-        lp = lbox.text_frame.paragraphs[0]
-        lp.text = label
-        lp.font.name = "Aptos"
-        lp.font.size = Pt(12)
-        lp.font.color.rgb = RGBColor(59, 87, 126)
-        x += 3.15
+    add_title(slide, "Why Now: Market Evidence")
     add_bullets(
         slide,
         0.8,
-        4.2,
+        2.0,
         12.0,
-        2.1,
+        4.7,
         [
-            "Input files: videos_text_ready_combined.csv, comments_raw_combined.csv, master_prd_slim_combined.csv",
-            "Campaign input: BOJ SPF + Glow Serum, U.S. market, sensitive-skin audience, $50,000 budget",
+            "US influencer marketing spend is projected at $10.52B in 2025 (EMARKETER, Mar 13, 2025).",
+            "YouTube influencer use among US marketers is projected to exceed 50% in 2025 (EMARKETER).",
+            "Global beauty grew 7.3% YoY in 2025; US beauty sales are 41% e-commerce (NIQ, Feb 25, 2025).",
+            "McKinsey projects core beauty segments to reach about $590B by 2030, with skincare as the largest segment (Aug 28, 2025).",
         ],
-        font_size=15,
+        font_size=18,
     )
-    add_footer(slide, "Data-driven prototype with fixed reproducible input")
+    add_footer(slide, "Section 3 | External Industry Context")
 
-    # 6
+    # 5. Why beauty and BOJ
     slide = prs.slides.add_slide(blank)
-    add_title(slide, "Method Pipeline")
+    add_title(slide, "Why Beauty and Why BOJ")
+    add_card(
+        slide,
+        0.65,
+        2.0,
+        5.95,
+        4.75,
+        "Case Fit",
+        [
+            "Beauty creator marketing is large and highly content-driven.",
+            "BOJ has visible social momentum and a product-specific campaign story.",
+            "BOJ U.S. expansion + sunscreen focus make a practical demo scenario.",
+            "(Fashionista coverage, Nov 13, 2024)",
+        ],
+    )
+    add_card(
+        slide,
+        6.72,
+        2.0,
+        5.95,
+        4.75,
+        "Dataset Feasibility Signals",
+        [
+            f"Source file: {kw_snapshot.get('source_file', 'N/A')} (n={int(kw_snapshot.get('total_videos', 0)):,} videos)",
+            _fmt_kw(kw_snapshot, "sunscreen"),
+            _fmt_kw(kw_snapshot, "spf"),
+            _fmt_kw(kw_snapshot, "beauty of joseon"),
+            _fmt_kw(kw_snapshot, "cerave"),
+        ],
+    )
+    add_footer(slide, "Section 3 | Client and Case Selection")
+
+    # 6. Data and features
+    slide = prs.slides.add_slide(blank)
+    add_title(slide, "Data and Features")
+    add_card(
+        slide,
+        0.7,
+        2.0,
+        6.0,
+        4.7,
+        "Data Used",
+        [
+            "Team-collected YouTube API exports (videos/comments/channel fields)",
+            f"Videos analyzed (full run): {int(dataset.get('videos_analyzed', 0)):,}",
+            f"Channels scored: {int(dataset.get('channels_scored', 0)):,}",
+            "Main files: videos_text_ready, comments_raw, master_prd_slim",
+        ],
+    )
+    add_card(
+        slide,
+        6.75,
+        2.0,
+        5.9,
+        4.7,
+        "Feature Groups",
+        [
+            "Network features: centrality + community",
+            "Text features: TF-IDF + semantic/tone alignment",
+            "Behavioral features: views/likes/comments/engagement",
+            "Reliability features: evidence score + credibility multiplier",
+        ],
+    )
+    add_footer(slide, "Section 4 | Data and Feature Engineering")
+
+    # 7. Preprocessing and EDA
+    slide = prs.slides.add_slide(blank)
+    add_title(slide, "Preprocessing and EDA")
+    slide.shapes.add_picture(str(image_path("community_distribution_clean.png")), Inches(0.78), Inches(2.0), height=Inches(4.8))
+    add_card(
+        slide,
+        8.0,
+        2.0,
+        4.5,
+        4.8,
+        "What we did",
+        [
+            "Deduplication + type normalization",
+            "Beauty include filter + non-beauty noise exclusion",
+            "Channel-level aggregation and recency features",
+            "EDA confirmed cluster concentration -> diversity guardrail needed",
+        ],
+        body_size=14,
+    )
+    add_footer(slide, "Section 4 | Data Understanding")
+
+    # 8. AI/ML approach
+    slide = prs.slides.add_slide(blank)
+    add_title(slide, "AI/ML Approach (Class-Learned Methods Focus)")
     add_bullets(
         slide,
         0.75,
@@ -366,151 +381,127 @@ def build() -> Path:
         12.0,
         4.9,
         [
-            "1) Data cleaning + beauty/noise filter",
-            "2) Channel aggregation and text profile generation",
-            "3) Network scoring (centrality + community detection)",
-            "4) TF-IDF relevance + semantic/tone enrichment",
-            "5) Evidence guardrail + diversity-aware ranking",
-            "6) ML benchmark (Linear/LASSO/Ridge/CART/RF/LightGBM, GroupKFold 5-fold)",
-            "7) ROI simulation + strategy generation + executive memo",
+            "1) Social Network Analysis: creator graph, centrality, communities",
+            "2) Text Analytics: TF-IDF relevance + semantic/tone enrichment",
+            "3) Supervised Regression: Linear, LASSO, Ridge, CART, RandomForest, LightGBM",
+            "4) Validation: GroupKFold(5) by channel to reduce leakage",
+            "5) Explainability: SHAP for feature contribution",
+            "Extensions shown in demo: ROI simulator, strategy and memo generation",
         ],
-        font_size=19,
+        font_size=18,
     )
-    add_footer(slide, "Rubric 3: Technical aspects and method choice")
+    add_footer(slide, "Section 5 | Methods")
 
-    # 7
+    # 9. Why this method mix
     slide = prs.slides.add_slide(blank)
-    add_title(slide, "Model Evaluation Results")
-    slide.shapes.add_picture(str(image_path("model_benchmark_rmse.png")), Inches(0.8), Inches(2.0), height=Inches(4.7))
+    add_title(slide, "Why This Method Mix")
+    add_card(
+        slide,
+        0.65,
+        2.0,
+        5.95,
+        4.8,
+        "Why not follower-count only",
+        [
+            "Misses campaign-language fit",
+            "Misses network position and community overlap",
+            "Misses quality/reliability signals",
+            "High chance of expensive creator mismatch",
+        ],
+    )
+    add_card(
+        slide,
+        6.72,
+        2.0,
+        5.95,
+        4.8,
+        "Hybrid ranking logic",
+        [
+            "Network influence + text fit + engagement potential",
+            "Reliability multiplier to penalize low-signal channels",
+            "Diversity constraint for healthier final shortlist",
+            "More robust than single-signal ranking",
+        ],
+    )
+    add_footer(slide, "Section 5 | Method Choice Rationale")
+
+    # 10. Model results
+    slide = prs.slides.add_slide(blank)
+    add_title(slide, "Model Results and Validation")
+    slide.shapes.add_picture(str(image_path("model_benchmark_rmse.png")), Inches(0.78), Inches(2.0), height=Inches(4.85))
     add_card(
         slide,
         8.0,
         2.0,
-        4.5,
-        4.7,
+        4.45,
+        4.85,
         f"Best model: {best_model}",
         [
             f"Best RMSE: {best_rmse:.5f}",
             f"Baseline RMSE: {baseline_rmse:.5f}",
-            f"RMSE reduction vs baseline: {gain_pct:.1f}%",
-            "Group-based CV used to reduce channel leakage risk",
+            f"Relative RMSE reduction: {gain_pct:.1f}%",
+            "Interpretation: meaningful uplift over naive baseline",
         ],
     )
-    add_footer(slide, "6 models compared under the same CV protocol")
+    add_footer(slide, "Section 5 | Validation Output")
 
-    # 8
+    # 11. Demo and use cases
     slide = prs.slides.add_slide(blank)
-    add_title(slide, "Explainability (SHAP)")
-    slide.shapes.add_picture(str(image_path("shap_summary_LightGBM.png")), Inches(0.75), Inches(2.0), height=Inches(4.8))
-    add_card(
-        slide,
-        7.95,
-        2.0,
-        4.6,
-        4.8,
-        "Why SHAP matters",
-        [
-            "Shows which features drive engagement predictions.",
-            "Improves trust for non-technical stakeholders.",
-            "Helps diagnose unstable or misleading signals.",
-        ],
-    )
-    add_footer(slide, "Rubric 3: Evaluation and sanity checking")
-
-    # 9
-    slide = prs.slides.add_slide(blank)
-    add_title(slide, "Top-10 BOJ Recommendations")
-    slide.shapes.add_picture(str(image_path("top10_final_scores.png")), Inches(0.72), Inches(2.0), height=Inches(4.95))
-    top3 = [r["channel_title"] for r in top10[:3]] if top10 else []
-    t = ", ".join(top3) if top3 else "N/A"
-    add_footer(slide, f"Top 3 channels: {t}")
-
-    # 10
-    slide = prs.slides.add_slide(blank)
-    add_title(slide, "Guardrails Against Bad Recommendations")
-    slide.shapes.add_picture(str(image_path("evidence_vs_finalscore_top10.png")), Inches(0.75), Inches(2.0), height=Inches(4.85))
-    overlap = int(bias.get("degree_top_overlap", 0))
-    topn = int(bias.get("top_n", 10))
-    add_card(
-        slide,
-        8.03,
-        2.0,
-        4.45,
-        4.85,
-        "Bias and quality controls",
-        [
-            "Low-evidence channels are automatically down-weighted.",
-            "Diversity guardrail prevents single-cluster over-concentration.",
-            f"Degree-only vs hybrid overlap: {overlap}/{topn}",
-        ],
-    )
-    add_footer(slide, "Reduced popularity bias with evidence-based filtering")
-
-    # 11
-    slide = prs.slides.add_slide(blank)
-    add_title(slide, "Network Diversity Diagnostics")
-    slide.shapes.add_picture(str(image_path("community_distribution_clean.png")), Inches(0.75), Inches(2.0), height=Inches(4.8))
-    add_card(
-        slide,
-        8.0,
-        2.0,
-        4.5,
-        4.8,
-        "Community results",
-        [
-            "Non-micro communities discovered: 6",
-            "Largest non-micro community share: 43.8%",
-            "Micro/isolated channels separated to improve readability",
-        ],
-    )
-    add_footer(slide, "Community-aware matching for healthier shortlist diversity")
-
-    # 12
-    slide = prs.slides.add_slide(blank)
-    add_title(slide, "ROI Scenario (Business Lens)")
-    slide.shapes.add_picture(str(image_path("roi_funnel_base.png")), Inches(0.75), Inches(2.0), height=Inches(4.9))
-    add_card(
-        slide,
-        7.85,
-        2.0,
-        4.65,
-        4.9,
-        "Base scenario outputs",
-        [
-            f"Budget: ${int(roi.get('budget_usd', 0)):,}",
-            f"Impressions: {int(roi.get('impressions', 0)):,}",
-            f"Clicks: {int(roi.get('clicks', 0)):,}",
-            f"Conversions: {int(roi.get('conversions', 0)):,}",
-            f"Expected ROAS: {float(roi.get('roas', 0)):.2f}x",
-        ],
-    )
-    add_footer(slide, "Scenario estimate only, not causal guarantee")
-
-    # 13
-    slide = prs.slides.add_slide(blank)
-    add_title(slide, "Live Demo Flow")
+    add_title(slide, "Prototype Demo: Input to Output")
+    slide.shapes.add_picture(str(image_path("top10_final_scores.png")), Inches(7.0), Inches(2.1), width=Inches(5.5))
     add_bullets(
         slide,
         0.8,
-        2.1,
-        12.0,
-        4.7,
+        2.0,
+        6.0,
+        4.9,
         [
-            "1) Enter campaign input (brand/product/audience/keywords/budget)",
-            "2) Run analysis and show analyzing workflow",
-            "3) Inspect Top-N cards with rationale and evidence",
-            "4) Change ranking strategy and diversity controls",
-            "5) Explore Text Intelligence and Network Studio",
-            "6) Review ML Studio (model comparison + SHAP)",
-            "7) Adjust ROI assumptions and export memo",
+            "Live flow: campaign input -> Top-N shortlist -> rationale/risk",
+            "Interactive tabs: Network, Text Intelligence, ML, ROI",
+            "Use case A: BOJ sunscreen launch planning",
+            "Use case B: CeraVe benchmark for shortlist calibration",
+            "Decision output: ranked creators + risk notes + memo export",
         ],
-        font_size=19,
+        font_size=17,
     )
-    add_footer(slide, "Rubric 4: Demo clarity and storytelling flow")
+    add_footer(slide, "Section 6 | Live Demo")
 
-    # 14
+    # 12. Impact
     slide = prs.slides.add_slide(blank)
-    add_title(slide, "Limitations and Future Work")
+    add_title(slide, "Business Impact")
+    add_card(
+        slide,
+        0.68,
+        2.0,
+        6.0,
+        4.8,
+        "How this helps the client",
+        [
+            "Faster influencer shortlisting and campaign planning",
+            "Transparent recommendation logic for stakeholder trust",
+            "Reduced mismatch risk before spending budget",
+            "Scenario-based ROI planning and expectation setting",
+        ],
+    )
+    add_card(
+        slide,
+        6.75,
+        2.0,
+        5.9,
+        4.8,
+        "Decisions improved",
+        [
+            "Who to prioritize in outreach",
+            "How many creators to activate by objective",
+            "How much budget risk is acceptable",
+            f"Base ROI scenario in run: {float(roi.get('roas', 0)):.2f}x expected ROAS",
+        ],
+    )
+    add_footer(slide, "Section 7 | Business Value")
+
+    # 13. Limitations and next steps
+    slide = prs.slides.add_slide(blank)
+    add_title(slide, "Limitations, Ethics, and Next Steps")
     add_card(
         slide,
         0.7,
@@ -519,9 +510,10 @@ def build() -> Path:
         4.8,
         "Current limitations",
         [
-            "Prototype uses pre-collected YouTube data.",
-            "ROI module is scenario simulation, not causal inference.",
-            "Cluster concentration still exists in skincare-heavy niches.",
+            "Pre-collected YouTube dataset (not live cross-platform feed)",
+            "ROI is scenario estimate, not causal proof",
+            "Remaining cluster concentration in skincare niches",
+            "Need larger-scale operational monitoring",
         ],
     )
     add_card(
@@ -530,100 +522,77 @@ def build() -> Path:
         2.0,
         5.95,
         4.8,
-        "Next steps",
+        "Ethics and roadmap",
         [
-            "Add live market and competitor enrichment.",
-            "Expand to TikTok/Instagram connectors.",
-            "Introduce experiment loop for closed-loop learning.",
+            "Bias checks: degree-overlap diagnostics + evidence penalty",
+            "Privacy: no sensitive personal profiling in prototype",
+            "Next: live connectors + fairness constraints + pilot calibration",
+            "Target: weekly decision-support workflow for brand teams",
         ],
     )
-    add_footer(slide, "Honest caveats + practical roadmap")
+    add_footer(slide, "Section 7 | Caveats and Roadmap")
 
-    # 15
+    # 14. AI tools usage
     slide = prs.slides.add_slide(blank)
-    add_title(slide, "Rubric Alignment (Target: 9-10)")
-    rows = [
-        ("Topic choice, scope, interest", "Clear marketing problem, creative hybrid AI scope, feasible for course timeline"),
-        ("Potential impact and relevance", "Directly supports influencer and budget decisions for brand teams"),
-        ("Technical aspects of prototype", "Working end-to-end app, 6-model benchmark, SHAP, bias diagnostics"),
-        ("Presentation quality/storytelling", "Context -> method -> evidence -> demo -> impact narrative with visuals"),
-    ]
-    table = slide.shapes.add_table(len(rows) + 1, 2, Inches(0.78), Inches(2.0), Inches(11.95), Inches(4.95)).table
-    table.columns[0].width = Inches(4.0)
-    table.columns[1].width = Inches(7.95)
-    table.cell(0, 0).text = "Rubric Criterion"
-    table.cell(0, 1).text = "Project Evidence"
-    for i, (a, b) in enumerate(rows, start=1):
-        table.cell(i, 0).text = a
-        table.cell(i, 1).text = b
-    for r in range(len(rows) + 1):
-        for c in range(2):
-            cell = table.cell(r, c)
-            for p in cell.text_frame.paragraphs:
-                p.font.name = "Aptos"
-                p.font.size = Pt(13 if r else 14)
-                p.font.bold = r == 0
-                p.font.color.rgb = RGBColor(20, 38, 66)
-    add_footer(slide, "Directly mapped to MSIS 521 project rubric")
-
-    # 16
-    slide = prs.slides.add_slide(blank)
-    add_title(slide, "15-Minute Delivery Plan")
-    add_bullets(
+    add_title(slide, "How We Used AI Tools")
+    add_card(
         slide,
-        0.9,
-        2.1,
-        11.8,
-        3.6,
+        0.7,
+        2.0,
+        5.95,
+        4.75,
+        "Where AI tools helped",
         [
-            "0:00-2:00 Problem and scope",
-            "2:00-5:30 Data and method pipeline",
-            "5:30-8:30 Evaluation and explainability",
-            "8:30-12:30 Live demo",
-            "12:30-14:00 Impact, caveats, roadmap",
-            "14:00-15:00 Q&A",
+            "Ideation and scope refinement",
+            "Implementation acceleration and debugging",
+            "Documentation and memo drafting",
+            "Slide polishing and presentation prep",
         ],
-        font_size=21,
     )
     add_card(
         slide,
-        0.9,
-        5.8,
-        11.8,
-        1.0,
-        "Speaking split suggestion",
-        ["Speaker A: business context | Speaker B: technical pipeline | Speaker C: demo + impact + Q&A"],
+        6.75,
+        2.0,
+        5.95,
+        4.75,
+        "Human responsibility",
+        [
+            "Problem framing and business assumptions",
+            "Model choice, validation, and guardrail design",
+            "Result interpretation and recommendation decisions",
+            "Final accountability stayed with the team",
+        ],
     )
-    add_footer(slide, "Time and role clarity improves delivery score")
+    add_footer(slide, "Section 8 | AI Tooling Disclosure")
 
-    # 17
+    # 15. References and Q&A
     slide = prs.slides.add_slide(blank)
-    add_title(slide, "References and Q&A")
+    add_title(slide, "Conclusion, References, and Q&A")
     add_bullets(
         slide,
-        0.9,
-        2.1,
-        11.8,
-        3.7,
+        0.82,
+        2.0,
+        12.0,
+        3.9,
         [
-            "MSIS 521 assignment brief and evaluation rubric (Canvas)",
-            "YouTube Data API documentation",
-            "scikit-learn documentation (regression, tree models, GroupKFold)",
-            "LightGBM documentation",
-            "SHAP documentation",
-            "Streamlit documentation",
+            "Conclusion: AI-MCN can reduce manual MCN dependence and improve influencer decision quality.",
+            "EMARKETER (Mar 13, 2025): US influencer spend and YouTube marketer adoption",
+            "NIQ (Feb 25, 2025): beauty growth and e-commerce/social commerce indicators",
+            "McKinsey (Aug 28, 2025): beauty market outlook to 2030",
+            "Fashionista (Nov 13, 2024): BOJ virality and U.S. market context",
+            "Technical refs: YouTube API, scikit-learn, LightGBM, SHAP, Streamlit",
         ],
-        font_size=19,
+        font_size=16,
     )
-    q = slide.shapes.add_textbox(Inches(0.9), Inches(6.0), Inches(11.5), Inches(0.8))
+    q = slide.shapes.add_textbox(Inches(0.82), Inches(6.1), Inches(11.8), Inches(0.8))
     qp = q.text_frame.paragraphs[0]
-    qp.text = "Thank you. Questions?"
+    qp.text = "Thank you. Q&A"
     qp.font.size = Pt(30)
     qp.font.bold = True
     qp.font.name = "Aptos Display"
     qp.font.color.rgb = RGBColor(16, 86, 150)
     qp.alignment = PP_ALIGN.CENTER
-    add_footer(slide, "AI-MCN team")
+    add_footer(slide, "AI-MCN | MSIS 521")
 
     prs.save(str(OUT_PPTX))
     return OUT_PPTX

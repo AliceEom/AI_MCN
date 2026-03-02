@@ -1,301 +1,257 @@
-# AI-MCN: AI-Augmented Influencer Matching for Beauty Campaigns
-## MSIS 521 Course Project (Team Presentation, 15 minutes)
+# AI-MCN: Replacing Traditional MCN Matching with an AI Decision System
+## MSIS 521 Course Project (15-minute Presentation)
 
 - Team: [Add names]
-- Course: MSIS 521
-- Date: [Add date]
-- Prototype: Streamlit app + Python pipeline
+- Client case: Beauty of Joseon (BOJ), U.S. sunscreen campaign
+- Prototype: Streamlit decision dashboard + Python AI pipeline
 
 ---
 
-# 1) Problem and Client Context
+# 1) Agenda and Timing (Professor Guide)
 
-**Client scenario (hypothetical but realistic):**
-- Brand: **Beauty of Joseon (BOJ)**
-- Product: **Relief Sun SPF + Glow Serum**
-- Market: **United States**
-
-**Business problem:**
-- Influencer discovery is often slow and biased toward follower size.
-- Brand teams need a repeatable way to find creators with:
-  - topic relevance,
-  - network influence,
-  - evidence-backed performance,
-  - transparent reasoning.
+1. Title & team (1 min)
+2. Business context and problem (2-3 min)
+3. Data and features (1-3 min)
+4. AI/ML approach (3-4 min)
+5. Prototype demo (3-4 min)
+6. Impact, limitations, next steps (2-3 min)
+7. How we used AI tools (1-2 min)
 
 ---
 
-# 2) Why Beauty of Joseon? (Selection Rationale + Brand Research)
+# 2) Business Context: Why This Problem Matters
 
-Why we selected BOJ:
-- Clear and defensible campaign theme for the class demo: sunscreen + lightweight skincare.
-- Distinct positioning for storytelling: heritage-inspired K-beauty with ingredient-focused messaging.
-- Strong comparison design with CeraVe (different brand positioning, same skincare category).
+What MCNs do today:
+- Collect influencer data
+- Match creators to brand campaigns
+- Charge agency/management fees
 
-Brand research snapshot (project-facing):
-- Positioning: modernized K-beauty skincare brand with gentle, daily-use value proposition.
-- Audience hypothesis: Gen Z/Millennial users focused on sensitive-skin-safe SPF and acne-aware routines.
-- Campaign need: choose creators by contextual fit + evidence quality, not only popularity.
+Client pain point:
+- Brands still pay high coordination cost but often get non-transparent matching logic.
+- Mismatch risk is expensive because influencer budget is large and outcomes are uncertain.
 
-Dataset evidence supporting feasibility (`videos_text_ready_combined.csv`, n=67,283):
-- `sunscreen`: 3,981 videos across 340 channels
-- `spf`: 3,850 videos across 344 channels
-- `k-beauty`: 636 videos across 76 channels
-- `beauty of joseon`: 286 videos across 69 channels
-- `cerave`: 747 videos across 118 channels
+Our objective:
+- Build an AI system that helps brands directly find best-fit influencers.
+- Reduce mismatch risk and improve campaign ROI consistency.
 
 ---
 
-# 3) Project Scope (Well-Scoped for a Quarter)
+# 3) Client and Decision to Improve
 
-**In-scope (prototype):**
-- End-to-end AI matching workflow using existing YouTube dataset.
-- Interactive campaign input -> ranked influencer shortlist.
-- Explainable scoring + ML benchmark + ROI simulation + memo output.
+Client scenario (hypothetical but realistic):
+- Brand: Beauty of Joseon (BOJ)
+- Product: Relief Sun SPF + Glow Serum
+- Market: United States
 
-**Out-of-scope (future work):**
-- Live social listening ingestion from all platforms.
-- Production-grade MLOps and A/B deployment infrastructure.
+Decision/process to improve:
+- From: manual / popularity-based creator selection
+- To: evidence-based shortlist + transparent rationale + ROI simulation
 
----
-
-# 4) Assignment Requirements Check
-
-This project satisfies the assignment requirements:
-- Pick a client/problem: done (BOJ use case).
-- Collect/obtain data: done (team-collected YouTube channel/video/comment data).
-- Build AI prototype in Python: done (full pipeline + Streamlit demo).
-- Prepare and present process, business story, and demo: done in this deck.
-
-Deliverables prepared:
-- Codebase: `/Users/alice/521_Marketing`
-- Presentation deck: this file
-- Demo app: `app.py` (English-only UI)
+Core business questions:
+- Which creators are best-fit for this specific product and audience?
+- Which shortlist is diverse and lower-risk?
+- What performance range can marketing managers expect before launch?
 
 ---
 
-# 5) Data and Coverage
+# 4) Why Now + Why Beauty + Why BOJ
 
-Data source:
-- Team-collected YouTube API dataset (beauty-related channels/videos/comments).
+Industry signal (external research):
+- US influencer marketing spend is projected at **$10.52B in 2025** (EMARKETER, Mar 13, 2025).
+- Over half of US marketers are expected to use influencer marketing on YouTube in 2025 (EMARKETER).
+- Global beauty grew **7.3% YoY** in 2025; US beauty sales are heavily digital (**41% e-commerce**) (NIQ, Feb 25, 2025).
+- McKinsey projects beauty core segments to reach **$590B by 2030**, with skincare as the largest segment.
 
-Current run statistics (BOJ configuration):
-- Videos analyzed: **42,750**
-- Channels scored: **1,089**
-- Top recommendations: **Top-10** default (user-adjustable in UI)
-
-Files used:
-- `data/videos_text_ready_combined.csv`
-- `data/comments_raw_combined.csv`
-- `data/master_prd_slim_combined.csv`
+Why BOJ for demo:
+- Strong social virality and concrete U.S. expansion story.
+- BOJ's sunscreen case is visible, product-specific, and fits our matching task.
 
 ---
 
-# 6) Method Overview (Hybrid AI Pipeline)
+# 5) BOJ Research Snapshot (Case Fit)
 
-1. Data cleaning + beauty filter  
-2. Channel-level aggregation  
-3. Network scoring (SNA centralities + communities)  
-4. Text relevance scoring (TF-IDF + keyword boost)  
-5. Semantic/tone enrichment for top candidates  
-6. Engagement and evidence quality scoring  
-7. ML benchmarking (5-fold GroupCV)  
-8. Final ranking with diversity guardrail  
-9. ROI simulation + strategy generation + executive memo
+From published brand coverage:
+- BOJ's Relief Sun content generated broad social traction (Fashionista, Nov 13, 2024).
+- BOJ launched U.S. pop-up activation and U.S.-specific sunscreen adaptation.
 
----
+From our dataset:
+- `videos_text_ready_combined.csv` (67,283 videos, 2,220 channels)
+- keyword coverage supports use case feasibility:
+  - sunscreen: 3,981 videos / 340 channels
+  - spf: 3,850 videos / 344 channels
+  - beauty of joseon: 286 videos / 69 channels
+  - cerave: 747 videos / 118 channels
 
-# 7) Technical Stack and Modeling
-
-**Core methods implemented:**
-- Linear Regression, LASSO, Ridge
-- CART (Decision Tree), Random Forest, LightGBM
-- 5-fold GroupKFold CV (grouped by channel)
-- SHAP explainability for tree best model
-
-**Scoring design (multi-signal):**
-- SNA + TF-IDF + Semantic + Tone + Engagement + ML potential
-- Reliability penalty to down-rank weak-evidence channels
+Inference:
+- Our data is sufficiently rich for BOJ-centered influencer matching and competitor benchmark.
 
 ---
 
-# 8) Model Evaluation Results (BOJ Run)
+# 6) Data and Features
 
-Best model: **LightGBM**
+Data used:
+- Team-collected YouTube API exports (videos, comments, channel-level fields)
+- Main files: videos, comments, master merged table
 
-Selected CV RMSE:
-- LightGBM: **0.00996**
-- RandomForest: 0.01463
-- CART: 0.02077
-- Baseline Median: **0.03800**
+Pipeline input scale (full run):
+- Videos analyzed: 42,750
+- Channels scored: 1,089
 
-Relative gain vs baseline:
-- **73.8% lower RMSE** (from 0.03800 to 0.00996)
+Key feature groups:
+- Network: degree/eigenvector/betweenness proxies, community ID
+- Text: TF-IDF similarity, semantic score, tone score
+- Behavioral: views/likes/comments, engagement-derived signals
+- Reliability: evidence score and credibility multiplier
+
+---
+
+# 7) Preprocessing + EDA (Course Concepts Applied)
+
+Preprocessing:
+- Duplicate removal and type normalization
+- Beauty include filter + non-beauty noise exclusion
+- Channel-level aggregation and recency features
+
+Simple EDA outputs:
+- Community distribution (cluster concentration check)
+- Top recommendation score breakdown
+- Keyword coverage over candidate channels
+
+What we learned:
+- Skincare creators form a dominant cluster, so diversity guardrail is required.
+- High keyword match alone is not enough; low-evidence channels must be down-weighted.
+
+---
+
+# 8) AI/ML Approach (Focused on Class-Learned Methods)
+
+We prioritized these course-relevant methods:
+1. **SNA (Social Networks Analysis)**: creator graph, centrality, communities
+2. **Text relevance (TF-IDF + semantic enrichment)**: campaign-to-channel language fit
+3. **Supervised regression suite**: Linear, LASSO, Ridge, CART, RandomForest, LightGBM
+4. **5-fold GroupKFold CV**: channel-grouped validation to reduce leakage
+5. **Model explainability (SHAP)**: interpretable feature contribution
+
+Extensions shown in demo (not deeply covered in talk):
+- ROI simulator, content strategy generator, executive memo automation
+
+---
+
+# 9) Why These Methods (and Not Simpler Alternatives)
+
+Why not follower-count ranking only:
+- misses topical fit, audience quality, and recency
+
+Why hybrid instead of one model:
+- SNA captures influence structure
+- TF-IDF/semantic captures campaign relevance
+- regression predicts engagement potential
+- guardrails reduce low-signal bias
+
+How final ranking works (brief):
+- weighted hybrid score + reliability multiplier
+- diversity-aware Top-N selection
+- benchmark comparison (BOJ vs CeraVe)
+
+---
+
+# 10) Model Results and Validation
+
+5-fold CV highlight (BOJ run):
+- Best model: LightGBM
+- RMSE: 0.00996
+- Baseline median RMSE: 0.03800
+- Relative reduction: 73.8%
+
+Interpretation:
+- Predictive block materially improves over naive baseline.
+- We only use ML potential weight when benchmark gain is meaningful.
 
 Visual:
 ![Model Benchmark](assets/model_benchmark_rmse.png)
 
 ---
 
-# 9) Explainability (SHAP)
+# 11) Prototype Demo (Input -> Output)
 
-Why this matters:
-- Helps non-technical stakeholders trust the ranking logic.
-- Shows which feature patterns most influence predicted engagement potential.
+Live flow:
+1. Enter campaign brief (brand/product/audience/keywords/budget)
+2. Generate Top-N influencer shortlist
+3. Inspect channel cards with rationale and risk flags
+4. Explore network, text match, ML benchmark, and ROI tabs
 
-Visual:
-![SHAP Summary](assets/shap_summary_LightGBM.png)
+Use case A (primary):
+- BOJ sunscreen launch planning (awareness + trial conversion)
 
----
-
-# 10) Top-10 BOJ Recommendations
-
-Top recommendations from this run:
-1. AliceintheRabbitHole  
-2. Dr. Sam Ellis  
-3. NikkieTutorials  
-4. Fit beauty  
-5. James Welsh  
-6. Dr. Usama Syed  
-7. Mixed Makeup  
-8. Dr Madiha Nisar  
-9. Lab Muffin Beauty Science  
-10. Cassandra Bankson
-
-Visual:
-![Top10 Scores](assets/top10_final_scores.png)
+Use case B (secondary):
+- Benchmark against CeraVe to calibrate shortlist quality and positioning
 
 ---
 
-# 11) Quality Guardrails and Bias Mitigation
+# 12) Business Impact
 
-Guardrails implemented:
-- Evidence-based penalty for tiny/low-signal channels.
-- Community diversity selection in final list.
+How this changes decisions:
+- Faster creator shortlisting with transparent evidence
+- Less dependence on manual MCN-style matching workflows
+- Better pre-campaign risk control using reliability and diversity checks
+- Better budget planning through scenario-based ROI analysis
 
-Bias diagnostic:
-- Overlap between degree-only top-10 and hybrid top-10 = **2/10**
-- Indicates reduced “popularity-only” bias.
-
-Visual:
-![Evidence vs Final Score](assets/evidence_vs_finalscore_top10.png)
+Who benefits:
+- Brand managers, performance marketers, partnerships teams, agencies
 
 ---
 
-# 12) Network Diversity Findings
+# 13) Limitations, Ethics, and Next Steps
 
-Community results (excluding micro/isolated channels):
-- Non-micro communities discovered: **6**
-- Largest non-micro community share: **43.8%**
+Limitations:
+- Current prototype is based on pre-collected YouTube data (not full live multi-platform ingestion)
+- ROI is a scenario estimate, not causal proof
+- Some cluster concentration remains in beauty sub-niches
 
-Interpretation:
-- Dataset has a dominant skincare cluster, but multiple communities remain.
-- Diversity guardrail prevents all recommendations from collapsing to one bubble.
+Ethics / bias / privacy:
+- Popularity bias risk monitored through overlap diagnostics
+- Low-evidence channels automatically penalized
+- No personal sensitive user profiling in this prototype
 
-Visual:
-![Community Distribution](assets/community_distribution_clean.png)
-
----
-
-# 13) ROI Scenario (Business Lens)
-
-Base scenario assumptions:
-- Budget: **$50,000**
-- CPM: $18, CTR: 1.8%, CVR: 3.0%, AOV: $38
-
-Estimated outcomes:
-- Impressions: **2,777,777**
-- Clicks: **49,999**
-- Conversions: **1,499**
-- Revenue: **$56,962**
-- Expected ROAS: **1.14x** (range: 0.80x–1.48x)
-
-Visual:
-![ROI Funnel](assets/roi_funnel_base.png)
+Next steps:
+- Add live connectors (YouTube + TikTok + Instagram)
+- Add stronger fairness/diversity constraints
+- Run real campaign pilot for calibration
 
 ---
 
-# 14) Demo Flow (What We Show Live)
+# 14) How We Used AI Tools in This Project
 
-1. Enter campaign input (brand/product/audience/keywords/budget).
-2. Run analysis pipeline.
-3. Inspect Top-N recommendations with rationale and evidence.
-4. Switch ranking strategies (network-first, keyword-first, performance-first).
-5. Explore Network Studio and Text Intelligence tabs.
-6. Open ML Studio (model comparison + SHAP).
-7. Adjust ROI assumptions in ROI Lab.
-8. Export recommendation memo.
+AI tools were used for:
+- idea generation and scope refinement
+- coding acceleration (pipeline/app implementation)
+- debugging and error triage
+- documentation, memo drafting, and presentation polishing
 
----
-
-# 15) Real-World Impact
-
-Who can use this:
-- Brand managers
-- Performance marketers
-- Influencer/partnership teams
-- Agencies
-
-Potential impact:
-- Faster shortlist generation
-- More transparent creator selection
-- Better risk control through evidence guardrails
-- Stronger decision support for budget allocation
+Human role remained central for:
+- problem framing
+- method selection and validation design
+- interpretation of results
+- business recommendation decisions
 
 ---
 
-# 16) Limitations and Honest Caveats
+# 15) Conclusion and References
 
-- Current prototype uses a pre-collected YouTube dataset (not live multi-platform ingestion).
-- ROI is a scenario simulation, not causal proof.
-- Some channels are still concentrated in dominant communities.
-- Live market/competitor web research is not yet automated in current run.
+Conclusion:
+- AI-MCN is a practical decision-support prototype that can reduce manual MCN dependence and improve influencer campaign quality.
 
-Planned next steps:
-- Live data connectors + periodic refresh
-- Stronger fairness/diversity constraints
-- Controlled pilot measurement with real campaign data
+References (external):
+- [EMARKETER Press Release (Mar 13, 2025): US influencer spending forecast](https://www.emarketer.com/press-releases/us-influencer-marketing-spending-will-surpass-10-billion-in-2025/)
+- [NIQ Press Release (Feb 25, 2025): global beauty growth, e-commerce/social commerce indicators](https://nielseniq.com/global/en/news-center/2025/niq-reports-7-3-year-over-year-value-growth-in-global-beauty-sector/)
+- [McKinsey (Aug 28, 2025): global beauty outlook to 2030](https://www.mckinsey.com/industries/consumer-packaged-goods/our-insights/a-close-look-at-the-global-beauty-industry-in-2025)
+- [Fashionista (Nov 13, 2024): BOJ U.S. expansion and virality context](https://fashionista.com/2024/11/beauty-of-joseon-k-beauty-skin-care-us-launch-strategy)
 
----
+References (technical):
+- YouTube Data API docs
+- scikit-learn docs (regression + GroupKFold)
+- LightGBM docs
+- SHAP docs
+- Streamlit docs
 
-# 17) Rubric Alignment (How We Target 9-10)
-
-**(1) Topic choice, scope, interest**
-- Clear, creative, and feasible scope: AI influencer matching + explainability + business outputs.
-
-**(2) Potential impact and relevance**
-- Directly tied to real marketing workflow (creator selection and campaign planning).
-
-**(3) Technical aspects**
-- Hybrid pipeline + multiple ML models + 5-fold GroupCV + SHAP + sanity checks.
-
-**(4) Presentation quality and storytelling**
-- Context -> data -> method -> demo -> impact arc.
-- Visual-first slides and interactive prototype walkthrough.
-
----
-
-# 18) Team Delivery Plan (15-Minute Timing)
-
-- 0:00–2:00: Problem, client context, and scope
-- 2:00–5:30: Data and method pipeline
-- 5:30–8:30: Model evaluation + explainability
-- 8:30–12:30: Live demo (app walkthrough)
-- 12:30–14:00: Impact, limitations, roadmap
-- 14:00–15:00: Q&A
-
-Suggested speaking split:
-- Speaker A: business context + scope
-- Speaker B: data + methods
-- Speaker C: demo + impact + Q&A
-
----
-
-# 19) References
-
-- Course assignment brief and rubric PDFs (Canvas)
-- YouTube Data API documentation
-- scikit-learn documentation (Linear/LASSO/Ridge/CART/RF, GroupKFold)
-- LightGBM documentation
-- SHAP documentation
-- Streamlit documentation
+Q&A
