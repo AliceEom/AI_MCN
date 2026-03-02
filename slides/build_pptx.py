@@ -108,14 +108,49 @@ def add_card(
     )
 
 
+def add_source_links(slide, links: list[tuple[str, str | None]]) -> None:
+    if not links:
+        return
+    box = slide.shapes.add_textbox(Inches(0.55), Inches(7.03), Inches(9.3), Inches(0.34))
+    tf = box.text_frame
+    tf.clear()
+    p = tf.paragraphs[0]
+    p.alignment = PP_ALIGN.LEFT
+    p.space_after = Pt(0)
+
+    prefix = p.add_run()
+    prefix.text = "Sources: "
+    prefix.font.size = Pt(8.5)
+    prefix.font.color.rgb = RGBColor(110, 128, 152)
+    prefix.font.name = "Aptos"
+
+    for i, (label, url) in enumerate(links):
+        if i:
+            sep = p.add_run()
+            sep.text = " | "
+            sep.font.size = Pt(8.5)
+            sep.font.color.rgb = RGBColor(130, 145, 165)
+            sep.font.name = "Aptos"
+        r = p.add_run()
+        r.text = label
+        r.font.size = Pt(8.5)
+        r.font.name = "Aptos"
+        if url:
+            r.font.color.rgb = RGBColor(26, 125, 188)
+            r.font.underline = True
+            r.hyperlink.address = url
+        else:
+            r.font.color.rgb = RGBColor(110, 128, 152)
+
+
 def add_footer(slide, text: str) -> None:
-    box = slide.shapes.add_textbox(Inches(0.55), Inches(7.03), Inches(12.0), Inches(0.32))
+    box = slide.shapes.add_textbox(Inches(10.05), Inches(7.03), Inches(2.75), Inches(0.32))
     tf = box.text_frame
     tf.clear()
     p = tf.paragraphs[0]
     p.text = text
     p.alignment = PP_ALIGN.RIGHT
-    p.font.size = Pt(10)
+    p.font.size = Pt(9)
     p.font.color.rgb = RGBColor(110, 128, 152)
     p.font.name = "Aptos"
 
@@ -209,6 +244,13 @@ def build() -> Path:
         ],
         font_size=23,
     )
+    add_source_links(
+        slide,
+        [
+            ("GitHub repo", "https://github.com/AliceEom/AI_MCN"),
+            ("EMARKETER 2025", "https://www.emarketer.com/press-releases/us-influencer-marketing-spending-will-surpass-10-billion-in-2025/"),
+        ],
+    )
     add_footer(slide, "Section 1 | Title and Team")
 
     # 2. Agenda and timing
@@ -230,6 +272,12 @@ def build() -> Path:
             "7) How we used AI tools (1-2 min)",
         ],
         font_size=21,
+    )
+    add_source_links(
+        slide,
+        [
+            ("MSIS 521 assignment/rubric (internal PDFs)", None),
+        ],
     )
     add_footer(slide, "Section 2 | Roadmap")
 
@@ -262,6 +310,14 @@ def build() -> Path:
             "Goal: reduce expensive mismatch risk before launch",
         ],
     )
+    add_source_links(
+        slide,
+        [
+            ("YouTube Content Manager", "https://support.google.com/youtube/answer/106934?hl=en-EN"),
+            ("YouTube MCN setup", "https://support.google.com/youtube/answer/7296308?hl=en-GB"),
+            ("IAB Creator Economy", "https://www.iab.com/news/creator-economy-ad-spend-to-reach-37-billion-in-2025-growing-4x-faster-than-total-media-industry-according-to-iab/"),
+        ],
+    )
     add_footer(slide, "Section 3 | Context and Decision")
 
     # 4. Why now / market evidence
@@ -280,6 +336,14 @@ def build() -> Path:
             "McKinsey projects core beauty segments to reach about $590B by 2030, with skincare as the largest segment (Aug 28, 2025).",
         ],
         font_size=18,
+    )
+    add_source_links(
+        slide,
+        [
+            ("EMARKETER", "https://www.emarketer.com/press-releases/us-influencer-marketing-spending-will-surpass-10-billion-in-2025/"),
+            ("NIQ Beauty 2025", "https://nielseniq.com/global/en/news-center/2025/niq-reports-7-3-year-over-year-value-growth-in-global-beauty-sector/"),
+            ("McKinsey 2025", "https://www.mckinsey.com/industries/consumer-packaged-goods/our-insights/a-close-look-at-the-global-beauty-industry-in-2025"),
+        ],
     )
     add_footer(slide, "Section 3 | External Industry Context")
 
@@ -315,6 +379,14 @@ def build() -> Path:
             _fmt_kw(kw_snapshot, "cerave"),
         ],
     )
+    add_source_links(
+        slide,
+        [
+            ("Fashionista BOJ", "https://fashionista.com/2024/11/beauty-of-joseon-k-beauty-skin-care-us-launch-strategy"),
+            ("BOJ Rice Wonderland", "https://beautyofjoseon.com/pages/rice-wonderland"),
+            ("FDA SIA", "https://www.fda.gov/drugs/guidance-compliance-regulatory-information/sunscreen-innovation-act-sia"),
+        ],
+    )
     add_footer(slide, "Section 3 | Client and Case Selection")
 
     # 6. Data and features
@@ -348,6 +420,13 @@ def build() -> Path:
             "Reliability features: evidence score + credibility multiplier",
         ],
     )
+    add_source_links(
+        slide,
+        [
+            ("YouTube Data API", "https://developers.google.com/youtube/v3"),
+            ("Project data files (internal)", None),
+        ],
+    )
     add_footer(slide, "Section 4 | Data and Feature Engineering")
 
     # 7. Preprocessing and EDA
@@ -369,6 +448,13 @@ def build() -> Path:
         ],
         body_size=14,
     )
+    add_source_links(
+        slide,
+        [
+            ("Preprocessing pipeline (internal)", None),
+            ("EDA plots (internal)", None),
+        ],
+    )
     add_footer(slide, "Section 4 | Data Understanding")
 
     # 8. AI/ML approach
@@ -389,6 +475,14 @@ def build() -> Path:
             "Extensions shown in demo: ROI simulator, strategy and memo generation",
         ],
         font_size=18,
+    )
+    add_source_links(
+        slide,
+        [
+            ("GroupKFold", "https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GroupKFold.html"),
+            ("LightGBM", "https://lightgbm.readthedocs.io/en/latest/"),
+            ("SHAP", "https://shap.readthedocs.io/en/latest/"),
+        ],
     )
     add_footer(slide, "Section 5 | Methods")
 
@@ -423,6 +517,14 @@ def build() -> Path:
             "More robust than single-signal ranking",
         ],
     )
+    add_source_links(
+        slide,
+        [
+            ("FTC Influencers", "https://www.ftc.gov/influencers"),
+            ("FTC Endorsement Guides", "https://www.ftc.gov/business-guidance/resources/ftcs-endorsement-guides"),
+            ("YouTube MCN reference", "https://support.google.com/youtube/answer/7296308?hl=en-GB"),
+        ],
+    )
     add_footer(slide, "Section 5 | Method Choice Rationale")
 
     # 10. Model results
@@ -441,6 +543,13 @@ def build() -> Path:
             f"Baseline RMSE: {baseline_rmse:.5f}",
             f"Relative RMSE reduction: {gain_pct:.1f}%",
             "Interpretation: meaningful uplift over naive baseline",
+        ],
+    )
+    add_source_links(
+        slide,
+        [
+            ("ML CV outputs (internal)", None),
+            ("LightGBM docs", "https://lightgbm.readthedocs.io/en/latest/"),
         ],
     )
     add_footer(slide, "Section 5 | Validation Output")
@@ -463,6 +572,13 @@ def build() -> Path:
             "Decision output: ranked creators + risk notes + memo export",
         ],
         font_size=17,
+    )
+    add_source_links(
+        slide,
+        [
+            ("Streamlit docs", "https://docs.streamlit.io/"),
+            ("Prototype app/pipeline (internal)", None),
+        ],
     )
     add_footer(slide, "Section 6 | Live Demo")
 
@@ -495,6 +611,13 @@ def build() -> Path:
             "How many creators to activate by objective",
             "How much budget risk is acceptable",
             f"Base ROI scenario in run: {float(roi.get('roas', 0)):.2f}x expected ROAS",
+        ],
+    )
+    add_source_links(
+        slide,
+        [
+            ("IAB Creator Economy", "https://www.iab.com/news/creator-economy-ad-spend-to-reach-37-billion-in-2025-growing-4x-faster-than-total-media-industry-according-to-iab/"),
+            ("YouTube U.S. Impact 2024", "https://blog.youtube/news-and-events/2024-us-youtube-impact-report/"),
         ],
     )
     add_footer(slide, "Section 7 | Business Value")
@@ -530,6 +653,14 @@ def build() -> Path:
             "Target: weekly decision-support workflow for brand teams",
         ],
     )
+    add_source_links(
+        slide,
+        [
+            ("FTC Influencer Disclosures", "https://www.ftc.gov/influencers"),
+            ("SAFE Sunscreen (House)", "https://www.congress.gov/bill/119th-congress/house-bill/3686"),
+            ("FDA SIA", "https://www.fda.gov/drugs/guidance-compliance-regulatory-information/sunscreen-innovation-act-sia"),
+        ],
+    )
     add_footer(slide, "Section 7 | Caveats and Roadmap")
 
     # 14. AI tools usage
@@ -563,6 +694,13 @@ def build() -> Path:
             "Final accountability stayed with the team",
         ],
     )
+    add_source_links(
+        slide,
+        [
+            ("Project commits/artifacts (internal)", None),
+            ("OpenAI platform docs", "https://platform.openai.com/docs/overview"),
+        ],
+    )
     add_footer(slide, "Section 8 | AI Tooling Disclosure")
 
     # 15. References and Q&A
@@ -584,7 +722,7 @@ def build() -> Path:
         ],
         font_size=16,
     )
-    q = slide.shapes.add_textbox(Inches(0.82), Inches(6.1), Inches(11.8), Inches(0.8))
+    q = slide.shapes.add_textbox(Inches(0.82), Inches(5.85), Inches(11.8), Inches(0.65))
     qp = q.text_frame.paragraphs[0]
     qp.text = "Thank you. Q&A"
     qp.font.size = Pt(30)
@@ -592,6 +730,14 @@ def build() -> Path:
     qp.font.name = "Aptos Display"
     qp.font.color.rgb = RGBColor(16, 86, 150)
     qp.alignment = PP_ALIGN.CENTER
+    add_source_links(
+        slide,
+        [
+            ("EMARKETER", "https://www.emarketer.com/press-releases/us-influencer-marketing-spending-will-surpass-10-billion-in-2025/"),
+            ("NIQ", "https://nielseniq.com/global/en/news-center/2025/niq-reports-7-3-year-over-year-value-growth-in-global-beauty-sector/"),
+            ("McKinsey", "https://www.mckinsey.com/industries/consumer-packaged-goods/our-insights/a-close-look-at-the-global-beauty-industry-in-2025"),
+        ],
+    )
     add_footer(slide, "AI-MCN | MSIS 521")
 
     prs.save(str(OUT_PPTX))
