@@ -6,6 +6,7 @@ from typing import Any
 
 import pandas as pd
 
+from .channel_details import build_channel_detail_table
 from .channel_media import build_channel_media
 from .config import CACHE_DIR, COMMENTS_CSV, DEFAULT_CONFIG, MASTER_CSV, PLOTS_DIR, REPORTS_DIR, VIDEOS_CSV, PipelineConfig
 from .content_generation import generate_executive_memo, generate_strategies
@@ -88,7 +89,7 @@ def run_pipeline(
     ensure_dir(PLOTS_DIR)
     ensure_dir(REPORTS_DIR)
 
-    videos_raw, comments_raw, _ = load_data(VIDEOS_CSV, COMMENTS_CSV, MASTER_CSV)
+    videos_raw, comments_raw, master_raw = load_data(VIDEOS_CSV, COMMENTS_CSV, MASTER_CSV)
 
     brief = build_brand_brief(brand_params)
     prepared = prepare_all(
@@ -138,6 +139,11 @@ def run_pipeline(
     ranked = _rank_for_brief(channels, brief, config=config, use_ml=use_ml)
     scored_df = ranked.scored_channels
     top5 = ranked.top5.copy()
+
+    detail_df = build_channel_detail_table(prepared.videos, prepared.comments, master_df=master_raw)
+    if not detail_df.empty:
+        scored_df = scored_df.merge(detail_df, on="_channel_id", how="left")
+        top5 = top5.merge(detail_df, on="_channel_id", how="left")
 
     media_candidates = scored_df.head(max(30, config.top_recommendations)).copy()
     media_map = build_channel_media(media_candidates, CACHE_DIR)

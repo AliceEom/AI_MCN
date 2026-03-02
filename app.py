@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 from dataclasses import replace
 from pathlib import Path
 import time
@@ -105,6 +106,24 @@ def _num(value: object, default: float = 0.0) -> float:
         return float(value)
     except Exception:
         return default
+
+
+def _as_text_list(value: object) -> list[str]:
+    if isinstance(value, list):
+        return [str(x).strip() for x in value if str(x).strip()]
+    if value is None:
+        return []
+    text = str(value).strip()
+    if not text or text.lower() == "nan":
+        return []
+    if text.startswith("[") and text.endswith("]"):
+        try:
+            parsed = ast.literal_eval(text)
+            if isinstance(parsed, list):
+                return [str(x).strip() for x in parsed if str(x).strip()]
+        except Exception:
+            pass
+    return [text]
 
 
 def _fit_bucket(score: float) -> tuple[str, str]:
@@ -496,39 +515,74 @@ def _render_top_matches(result: dict, req: dict) -> None:
             cols[1].markdown(f"**Final Match Score:** {_num(row.get('display_score')):.3f}")
             cols[1].write(_plain_language_reason(row))
 
-            m1, m2, m3, m4 = cols[1].columns(4)
+            m1, m2, m3, m4, m5 = cols[1].columns(5)
             m1.metric("Videos Used", f"{int(_num(row.get('n_videos'))):,}")
             m2.metric("Median Views", f"{int(_num(row.get('median_views'))):,}")
             m3.metric("Median Likes", f"{int(_num(row.get('median_likes'))):,}")
-            m4.metric("Community", f"{int(_num(row.get('community_id')))}")
+            m4.metric("Subscribers (est.)", f"{int(_num(row.get('est_subscribers'))):,}")
+            m5.metric("Comments Collected", f"{int(_num(row.get('comment_samples_n', row.get('comments_n')))):,}")
 
-            with cols[1].expander("Detailed Signals"):
-                st.markdown(
-                    f"SNA {_num(row.get('sna_score')):.3f} | TF-IDF {_num(row.get('tfidf_similarity')):.3f} | "
-                    f"Semantic {_num(row.get('semantic_score')):.3f} | Tone {_num(row.get('tone_match_score')):.3f} | "
-                    f"Engagement {_num(row.get('engagement_score')):.3f} | ML {_num(row.get('ml_potential_score')):.3f}"
+            cols[1].markdown(
+                f"**Signal Breakdown:** SNA {_num(row.get('sna_score')):.3f} | TF-IDF {_num(row.get('tfidf_similarity')):.3f} | "
+                f"Semantic {_num(row.get('semantic_score')):.3f} | Tone {_num(row.get('tone_match_score')):.3f} | "
+                f"Engagement {_num(row.get('engagement_score')):.3f} | ML {_num(row.get('ml_potential_score')):.3f}"
+            )
+            cols[1].markdown(
+                f"**Score Controls:** Base {_num(row.get('final_score_base')):.3f} | "
+                f"Reliability x{_num(row.get('credibility_multiplier')):.3f} | "
+                f"Community {int(_num(row.get('community_id')))}"
+            )
+            cols[1].markdown(
+                f"**Freshness:** Latest publish {_fmt_date(row.get('latest_publish'))} | "
+                f"Days since latest {int(_num(row.get('days_since_latest')))}"
+            )
+
+            channel_profile = str(row.get("channel_profile_text", "")).strip()
+            if channel_profile and channel_profile.lower() != "nan":
+                cols[1].markdown(f"**Channel Snapshot:** {channel_profile}")
+
+            keyword_summary = str(row.get("channel_keyword_summary", "")).strip()
+            if keyword_summary and keyword_summary.lower() != "nan":
+                cols[1].markdown(f"**Channel Keywords:** {keyword_summary}")
+
+            best_video_title = str(row.get("best_video_title", "")).strip()
+            if best_video_title and best_video_title.lower() != "nan":
+                cols[1].markdown(
+                    f"**Best Video in Dataset:** {best_video_title} ({int(_num(row.get('best_video_views'))):,} views)"
                 )
-                st.markdown(
-                    f"Base Score: {_num(row.get('final_score_base')):.3f} | "
-                    f"Reliability Multiplier: {_num(row.get('credibility_multiplier')):.3f}"
-                )
-                st.markdown(
-                    f"Latest Publish Date: {_fmt_date(row.get('latest_publish'))} | "
-                    f"Days Since Latest: {int(_num(row.get('days_since_latest')))}"
-                )
-                st.markdown(f"Rationale: {row.get('alignment_rationale', '')}")
-                flags = row.get("red_flags", [])
-                if isinstance(flags, list) and flags:
-                    for f in flags:
-                        st.warning(f)
+
+            recent_videos = _as_text_list(row.get("recent_video_titles"))
+            if recent_videos:
+                cols[1].markdown("**Recent Video Titles**")
+                for item in recent_videos[:5]:
+                    cols[1].markdown(f"- {item}")
+
+            top_liked_comment = str(row.get("top_liked_comment", "")).strip()
+            if top_liked_comment and top_liked_comment.lower() != "nan":
+                cols[1].markdown(f"**Top Liked Audience Comment:** {top_liked_comment}")
+
+            recent_comments = _as_text_list(row.get("recent_comments"))
+            if recent_comments:
+                cols[1].markdown("**Recent Audience Comments**")
+                for item in recent_comments[:3]:
+                    cols[1].markdown(f"- {item}")
+
+            cols[1].markdown(f"**Model Rationale:** {row.get('alignment_rationale', '')}")
+            flags = row.get("red_flags", [])
+            if isinstance(flags, list) and flags:
+                for f in flags:
+                    cols[1].warning(f)
 
             links = []
             if row.get("channel_url"):
                 links.append(f"[Open Channel]({row['channel_url']})")
             if row.get("video_url"):
                 links.append(f"[Representative Video]({row['video_url']})")
+            if row.get("best_video_url"):
+                links.append(f"[Best Video]({row['best_video_url']})")
             if links:
-                cols[1].markdown(" | ".join(links))
+                unique_links = list(dict.fromkeys(links))
+                cols[1].markdown(" | ".join(unique_links))
 
     st.markdown("### Detailed Channel Table")
     detail_cols = [
@@ -543,8 +597,16 @@ def _render_top_matches(result: dict, req: dict) -> None:
         "mean_engagement",
         "days_since_latest",
         "community_id",
+        "est_subscribers",
+        "est_video_count",
+        "channel_profile_text",
+        "channel_keyword_summary",
+        "best_video_title",
+        "best_video_views",
+        "top_liked_comment",
         "channel_url",
         "video_url",
+        "best_video_url",
     ]
     detail_cols = [c for c in detail_cols if c in ranked.columns]
     st.dataframe(ranked[detail_cols], use_container_width=True)
