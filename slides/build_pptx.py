@@ -108,6 +108,40 @@ def add_card(
     )
 
 
+def add_two_column_bullets(
+    slide,
+    left_title: str,
+    left_bullets: list[str],
+    right_title: str,
+    right_bullets: list[str],
+    top: float = 2.0,
+    height: float = 4.9,
+    body_size: int = 14,
+) -> None:
+    add_card(
+        slide,
+        0.68,
+        top,
+        5.95,
+        height,
+        left_title,
+        left_bullets,
+        title_size=17,
+        body_size=body_size,
+    )
+    add_card(
+        slide,
+        6.72,
+        top,
+        5.95,
+        height,
+        right_title,
+        right_bullets,
+        title_size=17,
+        body_size=body_size,
+    )
+
+
 def add_source_links(slide, links: list[tuple[str, str | None]]) -> None:
     if not links:
         return
@@ -739,6 +773,342 @@ def build() -> Path:
         ],
     )
     add_footer(slide, "AI-MCN | MSIS 521")
+
+    # 16. Backup: model performance details
+    slide = prs.slides.add_slide(blank)
+    add_title(slide, "Backup: Model Performance Snapshot")
+    slide.shapes.add_picture(str(image_path("model_benchmark_rmse.png")), Inches(0.78), Inches(2.0), height=Inches(4.8))
+    add_card(
+        slide,
+        7.95,
+        2.0,
+        4.5,
+        4.8,
+        "BOJ Full-Run Metrics",
+        [
+            f"Best model: {best_model}",
+            f"Best RMSE: {best_rmse:.5f}",
+            f"Baseline RMSE: {baseline_rmse:.5f}",
+            f"Relative RMSE reduction: {gain_pct:.1f}%",
+            "Best model selected by 5-fold GroupKFold RMSE.",
+            "BaselineMedian retained as reference in output table.",
+        ],
+        body_size=13,
+    )
+    add_source_links(
+        slide,
+        [
+            ("ml_cv_results.csv (internal)", None),
+            ("presentation_summary_boj.json (internal)", None),
+            ("GroupKFold docs", "https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GroupKFold.html"),
+        ],
+    )
+    add_footer(slide, "Backup 16 | Model Results Detail")
+
+    # 17. Backup: top-match anatomy
+    slide = prs.slides.add_slide(blank)
+    add_title(slide, "Backup: Top-Match Recommendation Anatomy")
+    add_two_column_bullets(
+        slide,
+        "What Each Recommendation Card Includes",
+        [
+            "Final Match Score (current ranking score in the tab)",
+            "Signal breakdown: SNA, TF-IDF, Semantic, Tone, Engagement, ML",
+            "Score controls: Base score, reliability multiplier, community id",
+            "Evidence label (High/Medium/Low) and fit label (Very Strong to Exploratory)",
+            "Channel snapshot, keyword summary, best/recent videos, recent comments",
+            "Red flags and rationale text for reviewer transparency",
+        ],
+        "How to Read It for Decision-Making",
+        [
+            "Start with Final Match Score and Evidence together.",
+            "Check reliability multiplier before trusting high base scores.",
+            "Review red flags for exclusions, low semantic fit, low activity.",
+            "Use video/comment context to verify qualitative brand fit.",
+            "Compare component mix by objective (awareness vs conversion).",
+            "Use diversity settings to avoid over-concentrated shortlist.",
+        ],
+        body_size=13,
+    )
+    add_source_links(
+        slide,
+        [
+            ("Top Matches tab code (app.py)", None),
+            ("channel_details.py (internal)", None),
+            ("ranking.py (internal)", None),
+        ],
+    )
+    add_footer(slide, "Backup 17 | Recommendation Interpretation")
+
+    # 18. Backup: network studio interpretation
+    slide = prs.slides.add_slide(blank)
+    add_title(slide, "Backup: Network Studio Interpretation Guide")
+    add_two_column_bullets(
+        slide,
+        "What the Network View Represents",
+        [
+            "Node = creator channel; edge = shared-tag relationship.",
+            "Edge weight = count of shared tags above threshold.",
+            "Node color = community cluster id.",
+            "Node size increases with final score in graph view.",
+            "Over-common tags are dropped to reduce graph noise.",
+            "Micro communities can be separated as community -1.",
+        ],
+        "How Bias Diagnostics Are Used",
+        [
+            "Degree Top Overlap compares centrality-only vs hybrid ranking.",
+            "Lower overlap suggests reduced popularity-only bias.",
+            "Unique communities in Top-N reflects portfolio diversity.",
+            "Community distribution chart reveals concentration risk.",
+            "Min edge / node sliders help stress-test shortlist stability.",
+            "Use diagnostics before final outreach decisions.",
+        ],
+        body_size=13,
+    )
+    add_source_links(
+        slide,
+        [
+            ("network_scoring.py (internal)", None),
+            ("orchestrator.py bias report (internal)", None),
+            ("Network Studio UI (app.py)", None),
+        ],
+    )
+    add_footer(slide, "Backup 18 | Network Diagnostics")
+
+    # 19. Backup: text intelligence interpretation
+    slide = prs.slides.add_slide(blank)
+    add_title(slide, "Backup: Text Intelligence Interpretation Guide")
+    add_two_column_bullets(
+        slide,
+        "Charts and Metrics",
+        [
+            "Text Match Map: X=TF-IDF, Y=Semantic, color=Evidence, size~views.",
+            "Top Terms: frequent words in top candidate text corpus.",
+            "Keyword Coverage: share of channels containing each tracked keyword.",
+            "Leaderboard: TF-IDF, Semantic, Tone, Final score side-by-side.",
+            "Campaign words from audience/USP/must-keywords shape query vector.",
+            "Exclude words can directly lower relevance scores.",
+        ],
+        "How to Use in Client Reviews",
+        [
+            "Upper-right map region = strongest language + meaning fit.",
+            "High TF-IDF but low semantic means superficial keyword overlap.",
+            "Low must-keyword coverage indicates query or data-gap issue.",
+            "Term chart validates whether shortlist matches campaign language.",
+            "Use with Top-Match evidence labels for safer final picks.",
+            "Document rationale from this tab in client memo.",
+        ],
+        body_size=13,
+    )
+    add_source_links(
+        slide,
+        [
+            ("text_scoring.py (internal)", None),
+            ("semantic_enrichment.py (internal)", None),
+            ("Text Intelligence UI (app.py)", None),
+        ],
+    )
+    add_footer(slide, "Backup 19 | Text Diagnostics")
+
+    # 20. Backup: ROI lab interpretation
+    slide = prs.slides.add_slide(blank)
+    add_title(slide, "Backup: ROI Lab Interpretation Guide")
+    add_two_column_bullets(
+        slide,
+        "ROI Simulator Mechanics",
+        [
+            "Inputs: Budget, CPM, CTR, CVR, AOV",
+            "Impressions = (Budget / CPM) * 1000",
+            "Clicks = Impressions * CTR",
+            "Conversions = Clicks * CVR",
+            "Revenue = Conversions * AOV",
+            "ROAS = Revenue / Budget (plus low/high range)",
+        ],
+        "Business Use and Caveats",
+        [
+            "Use for scenario planning, not causal proof.",
+            "Budget-sensitivity chart shows efficiency vs scale tradeoff.",
+            "Useful for pre-campaign expectation setting with finance teams.",
+            "Can compare assumptions across shortlist compositions.",
+            "Actual performance still depends on creative and execution quality.",
+            "Should be recalibrated with real campaign outcomes.",
+        ],
+        body_size=13,
+    )
+    add_source_links(
+        slide,
+        [
+            ("roi_simulation.py (internal)", None),
+            ("ROI tab UI (app.py)", None),
+            ("IAB creator spend context", "https://www.iab.com/news/creator-economy-ad-spend-to-reach-37-billion-in-2025-growing-4x-faster-than-total-media-industry-according-to-iab/"),
+        ],
+    )
+    add_footer(slide, "Backup 20 | ROI Interpretation")
+
+    # 21. Backup: business impact depth
+    slide = prs.slides.add_slide(blank)
+    add_title(slide, "Backup: Business Impact Detail")
+    add_two_column_bullets(
+        slide,
+        "Expected Impact for Brand Teams",
+        [
+            "Shortens creator research-to-shortlist cycle.",
+            "Converts opaque creator selection into transparent scorecards.",
+            "Adds reliability penalties to reduce false-positive picks.",
+            "Supports benchmark-based discussions with stakeholders.",
+            "Enables repeatable weekly operating rhythm.",
+            "Improves auditability for campaign post-mortems.",
+        ],
+        "Why the Timing Is Urgent",
+        [
+            "Creator budget scale is increasing rapidly.",
+            "Teams still report time and ROI measurement friction.",
+            "Beauty category adds extra pressure via high social influence.",
+            "Higher CAC increases cost of poor creator matching.",
+            "Brands need decision systems, not one-off creator lists.",
+            "AI-MCN framing reduces dependency on opaque intermediaries.",
+        ],
+        body_size=13,
+    )
+    add_source_links(
+        slide,
+        [
+            ("IAB Creator Economy 2025", "https://www.iab.com/news/creator-economy-ad-spend-to-reach-37-billion-in-2025-growing-4x-faster-than-total-media-industry-according-to-iab/"),
+            ("EMARKETER 2025", "https://www.emarketer.com/press-releases/us-influencer-marketing-spending-will-surpass-10-billion-in-2025/"),
+            ("Sprout workload findings", "https://sproutsocial.com/insights/data/social-media-teams-wear-many-hats-to-reach-business-goals/"),
+        ],
+    )
+    add_footer(slide, "Backup 21 | Impact Detail")
+
+    # 22. Backup: limitations and governance
+    slide = prs.slides.add_slide(blank)
+    add_title(slide, "Backup: Limitations and Governance Detail")
+    add_two_column_bullets(
+        slide,
+        "Current Technical Constraints",
+        [
+            "Dataset is pre-collected, not full live multi-platform ingestion.",
+            "Coverage depends on available YouTube data and keyword filters.",
+            "ROI output is assumption-based simulation.",
+            "Semantic enrichment quality depends on text richness.",
+            "Community structure may still be concentrated in sub-niches.",
+            "Cloud demo mode can use reduced snapshot data.",
+        ],
+        "Governance and Compliance Controls",
+        [
+            "FTC disclosure and endorsement compliance must be enforced.",
+            "Claim safety checks needed for product-specific messaging.",
+            "Brand safety workflow should include human reviewer checkpoints.",
+            "Bias checks should be monitored as data evolves.",
+            "Recommendation logs should be retained for auditability.",
+            "Legal/marketing sign-off needed before launch decisions.",
+        ],
+        body_size=13,
+    )
+    add_source_links(
+        slide,
+        [
+            ("FTC Influencers", "https://www.ftc.gov/influencers"),
+            ("FTC Endorsement Guides", "https://www.ftc.gov/business-guidance/resources/ftcs-endorsement-guides"),
+            ("FDA SIA", "https://www.fda.gov/drugs/guidance-compliance-regulatory-information/sunscreen-innovation-act-sia"),
+        ],
+    )
+    add_footer(slide, "Backup 22 | Limitations & Compliance")
+
+    # 23. Backup: roadmap
+    slide = prs.slides.add_slide(blank)
+    add_title(slide, "Backup: 90-Day Operational Roadmap")
+    add_two_column_bullets(
+        slide,
+        "Phase 1 (0-30 Days)",
+        [
+            "Lock weekly pipeline schedule and dashboard review cadence.",
+            "Define reviewer checklist for low-evidence channels.",
+            "Standardize export package for brand decision meetings.",
+            "Set benchmark brands by category for context comparison.",
+            "Track turnaround time and reviewer agreement metrics.",
+        ],
+        "Phase 2-3 (31-90 Days)",
+        [
+            "Add live connectors and larger benchmark panel coverage.",
+            "Run pilot with real outreach and campaign outcomes.",
+            "Compare predicted vs realized metrics and recalibrate model.",
+            "Add fairness constraints and stronger monitoring alerts.",
+            "Finalize operating playbook for in-house AI-MCN workflow.",
+        ],
+        body_size=13,
+    )
+    add_source_links(
+        slide,
+        [
+            ("orchestrator.py (internal)", None),
+            ("app.py workflow (internal)", None),
+            ("AI_MCN_Analysis_Explainer_EN.md (internal)", None),
+        ],
+    )
+    add_footer(slide, "Backup 23 | Roadmap")
+
+    # 24. Backup: AI tool usage detail
+    slide = prs.slides.add_slide(blank)
+    add_title(slide, "Backup: AI Tool Usage Detail")
+    add_two_column_bullets(
+        slide,
+        "Where AI Tools Accelerated Work",
+        [
+            "Research synthesis and structuring references for slides.",
+            "Implementation support across data, ML, and UI modules.",
+            "Debugging support for pipeline/runtime issues.",
+            "Documentation drafting and bilingual explainer production.",
+            "Presentation refinement and narrative iteration.",
+        ],
+        "Human-Owned Responsibilities",
+        [
+            "Client problem framing and objective definition.",
+            "Method selection and validation logic design.",
+            "Quality control on model outputs and interpretation.",
+            "Risk/compliance framing and stakeholder communication.",
+            "Final recommendation accountability remained with team.",
+        ],
+        body_size=13,
+    )
+    add_source_links(
+        slide,
+        [
+            ("OpenAI docs", "https://platform.openai.com/docs/overview"),
+            ("Internal repo artifacts", None),
+        ],
+    )
+    add_footer(slide, "Backup 24 | AI Tooling Detail")
+
+    # 25. Backup: reference library
+    slide = prs.slides.add_slide(blank)
+    add_title(slide, "Backup: Research Library for Team Follow-up")
+    add_bullets(
+        slide,
+        0.78,
+        2.0,
+        12.0,
+        4.9,
+        [
+            "Market spend: EMARKETER (Mar 13, 2025), IAB (Nov 20, 2025), Goldman Sachs creator economy outlook.",
+            "Operational pain: Sprout Social workload findings; Linqia 2023/2026 benchmark reports.",
+            "Beauty context: NIQ global beauty growth + K-beauty landscape; McKinsey 2025 beauty outlook.",
+            "Client context: BOJ official campaign pages + public U.S. strategy coverage.",
+            "Governance: FTC influencer disclosures/endorsement guides, YouTube MCN documentation, FDA sunscreen policy context.",
+            "All links are included in slide markdown and sources footer for teammate reading.",
+        ],
+        font_size=15,
+    )
+    add_source_links(
+        slide,
+        [
+            ("EMARKETER", "https://www.emarketer.com/press-releases/us-influencer-marketing-spending-will-surpass-10-billion-in-2025/"),
+            ("IAB", "https://www.iab.com/news/creator-economy-ad-spend-to-reach-37-billion-in-2025-growing-4x-faster-than-total-media-industry-according-to-iab/"),
+            ("NIQ", "https://nielseniq.com/global/en/news-center/2025/niq-reports-7-3-year-over-year-value-growth-in-global-beauty-sector/"),
+            ("McKinsey", "https://www.mckinsey.com/industries/consumer-packaged-goods/our-insights/a-close-look-at-the-global-beauty-industry-in-2025"),
+        ],
+    )
+    add_footer(slide, "Backup 25 | References")
 
     prs.save(str(OUT_PPTX))
     return OUT_PPTX
