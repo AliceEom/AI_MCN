@@ -50,7 +50,12 @@ class MLArtifacts:
     notes: list[str]
 
 
-def _build_feature_matrix(train_df: pd.DataFrame, test_df: pd.DataFrame, max_features: int, svd_components: int) -> tuple[np.ndarray, np.ndarray, list[str]]:
+def _build_feature_matrix(
+    train_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    max_features: int,
+    svd_components: int,
+) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
     numeric_cols = [
         "log_views",
         "log_likes",
@@ -69,12 +74,13 @@ def _build_feature_matrix(train_df: pd.DataFrame, test_df: pd.DataFrame, max_fea
     x_train_num = scaler.fit_transform(x_train_num)
     x_test_num = scaler.transform(x_test_num)
 
-    x_train = x_train_num
-    x_test = x_test_num
-    x_train = np.nan_to_num(x_train, nan=0.0, posinf=0.0, neginf=0.0)
-    x_test = np.nan_to_num(x_test, nan=0.0, posinf=0.0, neginf=0.0)
+    x_train = np.nan_to_num(x_train_num, nan=0.0, posinf=0.0, neginf=0.0)
+    x_test = np.nan_to_num(x_test_num, nan=0.0, posinf=0.0, neginf=0.0)
     x_train = np.clip(x_train, -1e6, 1e6)
     x_test = np.clip(x_test, -1e6, 1e6)
+
+    x_train = pd.DataFrame(x_train, columns=numeric_cols, index=train_df.index)
+    x_test = pd.DataFrame(x_test, columns=numeric_cols, index=test_df.index)
     feature_names = numeric_cols
     return x_train, x_test, feature_names
 
@@ -400,7 +406,7 @@ def run_ml_suite(
         sample_n = min(600, x_full.shape[0])
         rng = np.random.default_rng(seed=random_state)
         idx = rng.choice(np.arange(x_full.shape[0]), size=sample_n, replace=False)
-        x_sample = x_full[idx]
+        x_sample = x_full.iloc[idx].to_numpy(dtype=float)
         shap_paths, shap_summary_df, shap_dependence_df = _try_shap(
             best_model,
             x_sample,
