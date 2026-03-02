@@ -18,6 +18,7 @@ All comments and notes are written in English for clear grading and review.
 ```text
 submission_colab_python/
   ai_mcn_submission/
+    analysis_categories.py
     config.py
     data_bootstrap.py
     data_prep.py
@@ -89,6 +90,36 @@ submission_colab_python/
 - `run_submission_pipeline.py`
   - CLI entry point to execute the full pipeline in one command
 
+- `analysis_categories.py`
+  - Canonical grouped taxonomy for all analysis/modeling blocks
+  - Designed for grading clarity and presentation consistency
+
+---
+
+## 2.1 Analysis/modeling categories (grouped for evaluation)
+
+The project methods are grouped into large categories so first-time reviewers can understand the scope quickly.
+
+### Analysis: Class Concepts
+
+1. Text analysis
+2. TF-IDF
+3. Sentiment Analysis & Tone enrichment
+4. SNA - Social Network Analysis (degree, betweenness proxy, eigenvector proxy)
+5. ROI Calculator & Simulation
+
+### Additional categories used in this project
+
+1. Data Engineering (data preparation and cleaning)
+2. Predictive Modeling (regression benchmark suite)
+3. Explainability (SHAP)
+4. Decision Optimization (hybrid ranking, reliability control, diversity guardrail)
+5. Reporting and Decision Support (benchmarking, strategy, memo, exports)
+
+For reproducible category mapping, see:
+- `ai_mcn_submission/analysis_categories.py`
+- `colab_walkthrough.get_analysis_category_overview()`
+
 ---
 
 ## 3) Colab setup instructions
@@ -136,6 +167,7 @@ In Colab:
 
 ```python
 from colab_walkthrough import (
+    get_analysis_category_overview,
     run_data_preparation_step,
     run_network_step,
     run_text_step,
@@ -146,12 +178,13 @@ from colab_walkthrough import (
 ```
 
 Suggested sequence:
-1. `run_data_preparation_step()`
-2. `run_network_step(...)`
-3. `run_text_step(...)`
-4. `run_ml_step(...)`
-5. `run_full_pipeline_step(...)`
-6. `render_core_figures(...)`
+1. `get_analysis_category_overview()`
+2. `run_data_preparation_step()`
+3. `run_network_step(...)`
+4. `run_text_step(...)`
+5. `run_ml_step(...)`
+6. `run_full_pipeline_step(...)`
+7. `render_core_figures(...)`
 
 This gives a clear, audit-friendly progression from raw data to final recommendation.
 
@@ -163,4 +196,3 @@ This gives a clear, audit-friendly progression from raw data to final recommenda
 - Ranking is multi-signal and includes reliability controls.
 - ML contribution is gated by CV performance against baseline.
 - Outputs include both quantitative metrics and qualitative rationale.
-

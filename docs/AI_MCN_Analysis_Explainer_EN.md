@@ -637,6 +637,41 @@ Other generated data:
 
 ---
 
+## 18.1) Analysis categories (requested grouped structure)
+
+To make the project easy for first-time readers, the analysis/modeling work can be grouped as follows.
+
+### Analysis: Class Concepts
+
+1. Text analysis
+2. TF-IDF
+3. Sentiment Analysis & Tone enrichment
+4. SNA - Social Network Analysis (degree, betweenness proxy, eigenvector proxy)
+5. ROI Calculator & Simulation
+
+Notes:
+- \"Sentiment Analysis & Tone enrichment\" in this project is implemented primarily as tone enrichment and comment-context signals.
+- There is no separate standalone sentiment classifier model in the current code.
+
+### Additional categories (not listed in the prompt but implemented)
+
+1. Data Engineering
+   - data loading, cleaning, filtering, aggregation
+2. Predictive Modeling
+   - regression benchmark suite with GroupKFold CV
+3. Explainability
+   - SHAP summary/dependence for tree-model path
+4. Decision Optimization
+   - reliability multiplier, eligibility guard, diversity-aware selection
+5. Reporting and Decision Support
+   - benchmark panel, strategy generation, executive memo, export artifacts
+
+Code mapping for this category table:
+- `submission_colab_python/ai_mcn_submission/analysis_categories.py`
+- `submission_colab_python/colab_walkthrough.py` -> `get_analysis_category_overview()`
+
+---
+
 ## 19) Class-linked methods vs project extensions
 
 Class-linked (based on lecture themes):
@@ -699,4 +734,3 @@ It is a transparent decision-support workflow that helps teams:
 - justify choices better
 - reduce mismatch risk
 - communicate assumptions clearly
-

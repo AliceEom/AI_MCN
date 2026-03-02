@@ -21,6 +21,7 @@ from ai_mcn_submission.config import (
     PLOTS_DIR,
     VIDEOS_CSV,
 )
+from ai_mcn_submission.analysis_categories import get_analysis_category_table
 from ai_mcn_submission.data_prep import load_data, prepare_all
 from ai_mcn_submission.ml_modeling import run_ml_suite
 from ai_mcn_submission.network_scoring import build_channel_graph, compute_network_scores
@@ -51,6 +52,15 @@ def default_brand_params() -> dict[str, Any]:
         "exclude_keywords": ["music", "gaming", "movie", "trailer"],
         "market": "United States",
     }
+
+
+def get_analysis_category_overview() -> pd.DataFrame:
+    """
+    Return the full analysis/modeling taxonomy table used in this submission.
+
+    This table is intended for grading slides and notebook documentation.
+    """
+    return get_analysis_category_table()
 
 
 def run_data_preparation_step(brand_params: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -244,4 +254,3 @@ def save_top_outputs(result: dict[str, Any], out_dir: str = "submission_outputs"
         saved["executive_memo_md"] = str(memo_path)
 
     return saved
-

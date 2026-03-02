@@ -613,6 +613,41 @@ ML 비활성 런은 ML 가중치 0 처리 후 정규화합니다.
 
 ---
 
+## 18.1) 분석 카테고리 묶음 (요청한 구조 반영)
+
+처음 보는 사람도 구조를 바로 이해할 수 있게, 분석/모델링을 아래처럼 묶어 설명할 수 있습니다.
+
+### Analysis: Class Concepts
+
+1. Text analysis
+2. TF-IDF
+3. Sentiment Analysis & Tone enrichment
+4. SNA - Social Network Analysis (degree, betweenness proxy, eigenvector proxy)
+5. ROI Calculator & Simulation
+
+보충 설명:
+- 이 프로젝트에서 \"Sentiment Analysis & Tone enrichment\"는 tone enrichment와 댓글 맥락 신호 중심으로 구현되어 있습니다.
+- 별도의 독립 sentiment classifier 모델은 현재 코드에 포함되어 있지 않습니다.
+
+### 추가 카테고리 (요청 목록 외, 실제 구현됨)
+
+1. Data Engineering
+   - 데이터 로딩, 클리닝, 필터링, 채널 집계
+2. Predictive Modeling
+   - GroupKFold 기반 회귀 모델 벤치마크
+3. Explainability
+   - 트리 모델 경로의 SHAP summary/dependence
+4. Decision Optimization
+   - 신뢰도 배수, eligibility 조건, 다양성 가드레일
+5. Reporting and Decision Support
+   - 벤치마크, 전략 생성, 메모 생성, 산출물 내보내기
+
+카테고리 코드 매핑:
+- `submission_colab_python/ai_mcn_submission/analysis_categories.py`
+- `submission_colab_python/colab_walkthrough.py` -> `get_analysis_category_overview()`
+
+---
+
 ## 19) 수업 기반 분석 vs 프로젝트 확장
 
 수업 기반(강의 주제와 직접 연결):
@@ -675,4 +710,3 @@ python3 scripts/bootstrap_full_data_from_gdrive.py
 - 더 설명 가능한 추천
 - 더 낮은 매칭 실패 리스크
 - 더 명확한 가정 기반 계획
-
