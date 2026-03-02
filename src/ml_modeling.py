@@ -41,6 +41,9 @@ class MLArtifacts:
     cv_results: pd.DataFrame
     best_model_name: str
     channel_potential: pd.DataFrame
+    pred_actual: pd.DataFrame
+    shap_summary: pd.DataFrame
+    shap_dependence: pd.DataFrame
     model_plot_path: str | None
     pred_plot_path: str | None
     shap_plot_paths: list[str]
@@ -150,20 +153,43 @@ def _plot_pred_vs_actual(y_true: np.ndarray, y_pred: np.ndarray, model_name: str
     return str(out_path)
 
 
-def _try_shap(model: object, x_sample: np.ndarray, feature_names: list[str], out_dir: Path, model_name: str) -> list[str]:
-    if not SHAP_AVAILABLE:
-        return []
-
-    if x_sample.shape[0] == 0:
-        return []
+def _try_shap(
+    model: object,
+    x_sample: np.ndarray,
+    feature_names: list[str],
+    out_dir: Path,
+    model_name: str,
+) -> tuple[list[str], pd.DataFrame, pd.DataFrame]:
+    empty_summary = pd.DataFrame(columns=["feature", "mean_abs_shap"])
+    empty_dep = pd.DataFrame(columns=["feature", "feature_value", "shap_value"])
+    if not SHAP_AVAILABLE or x_sample.shape[0] == 0:
+        return [], empty_summary, empty_dep
 
     paths: list[str] = []
+    summary_df = empty_summary
+    dep_df = empty_dep
     try:
         explainer = shap.TreeExplainer(model)
         shap_values = explainer.shap_values(x_sample)
+        if isinstance(shap_values, list):
+            shap_values = shap_values[0]
+        shap_values = np.asarray(shap_values)
+        if shap_values.ndim == 1:
+            shap_values = shap_values.reshape(-1, 1)
+
+        n_features = min(shap_values.shape[1], len(feature_names))
+        use_names = feature_names[:n_features]
+        shap_values = shap_values[:, :n_features]
+
+        abs_mean = np.abs(shap_values).mean(axis=0)
+        summary_df = (
+            pd.DataFrame({"feature": use_names, "mean_abs_shap": abs_mean})
+            .sort_values("mean_abs_shap", ascending=False)
+            .reset_index(drop=True)
+        )
 
         plt.figure(figsize=(8.5, 5.2))
-        shap.summary_plot(shap_values, x_sample, feature_names=feature_names, show=False)
+        shap.summary_plot(shap_values, x_sample[:, :n_features], feature_names=use_names, show=False)
         out1 = out_dir / f"shap_summary_{model_name}.png"
         plt.tight_layout()
         plt.savefig(out1, dpi=140, bbox_inches="tight")
@@ -171,20 +197,32 @@ def _try_shap(model: object, x_sample: np.ndarray, feature_names: list[str], out
         paths.append(str(out1))
 
         # Dependence plots for top 3 absolute SHAP features.
-        abs_mean = np.abs(shap_values).mean(axis=0)
         top_idx = np.argsort(abs_mean)[::-1][:3]
+        dep_rows: list[dict[str, float | str]] = []
         for idx in top_idx:
             plt.figure(figsize=(7.0, 4.5))
-            shap.dependence_plot(int(idx), shap_values, x_sample, feature_names=feature_names, show=False)
-            out_dep = out_dir / f"shap_dependence_{model_name}_{feature_names[int(idx)]}.png"
+            shap.dependence_plot(int(idx), shap_values, x_sample[:, :n_features], feature_names=use_names, show=False)
+            out_dep = out_dir / f"shap_dependence_{model_name}_{use_names[int(idx)]}.png"
             plt.tight_layout()
             plt.savefig(out_dep, dpi=140, bbox_inches="tight")
             plt.close()
             paths.append(str(out_dep))
+            dep_rows.extend(
+                [
+                    {
+                        "feature": str(use_names[int(idx)]),
+                        "feature_value": float(x_sample[i, int(idx)]),
+                        "shap_value": float(shap_values[i, int(idx)]),
+                    }
+                    for i in range(shap_values.shape[0])
+                ]
+            )
+        if dep_rows:
+            dep_df = pd.DataFrame(dep_rows)
     except Exception:
-        return []
+        return [], empty_summary, empty_dep
 
-    return paths
+    return paths, summary_df, dep_df
 
 
 def run_ml_suite(
@@ -356,12 +394,20 @@ def run_ml_suite(
 
     # SHAP only for tree models.
     shap_paths: list[str] = []
+    shap_summary_df = pd.DataFrame(columns=["feature", "mean_abs_shap"])
+    shap_dependence_df = pd.DataFrame(columns=["feature", "feature_value", "shap_value"])
     if model_meta.get(best_model_name, {}).get("type") == "tree":
         sample_n = min(600, x_full.shape[0])
         rng = np.random.default_rng(seed=random_state)
         idx = rng.choice(np.arange(x_full.shape[0]), size=sample_n, replace=False)
         x_sample = x_full[idx]
-        shap_paths = _try_shap(best_model, x_sample, feature_names_full, out_dir, best_model_name)
+        shap_paths, shap_summary_df, shap_dependence_df = _try_shap(
+            best_model,
+            x_sample,
+            feature_names_full,
+            out_dir,
+            best_model_name,
+        )
 
     # Baseline comparison note.
     best_rmse = float(valid_df.sort_values("rmse_mean").iloc[0]["rmse_mean"])
@@ -380,11 +426,20 @@ def run_ml_suite(
         "r2_std": 0.0,
     }
     cv_df = pd.concat([cv_df, pd.DataFrame([baseline_row])], ignore_index=True)
+    pred_actual_df = pd.DataFrame(
+        {
+            "actual": y,
+            "predicted": oof_store[best_model_name],
+        }
+    )
 
     return MLArtifacts(
         cv_results=cv_df,
         best_model_name=best_model_name,
         channel_potential=channel_potential,
+        pred_actual=pred_actual_df,
+        shap_summary=shap_summary_df,
+        shap_dependence=shap_dependence_df,
         model_plot_path=model_plot_path,
         pred_plot_path=pred_plot_path,
         shap_plot_paths=shap_paths,

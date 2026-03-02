@@ -9,7 +9,6 @@ import time
 import numpy as np
 import pandas as pd
 import streamlit as st
-from matplotlib import pyplot as plt
 from sklearn.feature_extraction.text import CountVectorizer
 
 try:
@@ -26,13 +25,6 @@ from src.config import DEFAULT_CONFIG
 from src.orchestrator import run_pipeline
 from src.ranking import select_top_with_diversity
 from src.roi_simulation import simulate_roi
-from src.visualization import (
-    community_figure,
-    model_cv_figure,
-    network_figure,
-    roi_funnel_figure,
-    score_breakdown_figure,
-)
 
 
 st.set_page_config(page_title="AI-MCN Demo", layout="wide")
@@ -45,12 +37,24 @@ def _inject_css() -> None:
         """
 <style>
 html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
+:root { color-scheme: light !important; }
+[data-testid="stAppViewContainer"], [data-testid="stHeader"], [data-testid="stSidebar"] {
+  background: #f5f7fb !important;
+}
+.stApp, .stApp p, .stApp li, .stApp label, .stApp span, .stApp h1, .stApp h2, .stApp h3, .stApp h4 {
+  color: #10243f !important;
+}
+.stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
+  color: #10243f !important;
+  font-weight: 700;
+}
 .hero-wrap {
   border-radius: 20px;
   padding: 34px 30px;
   background: linear-gradient(140deg, #13395f 0%, #1576a3 48%, #3ab4cf 100%);
   color: #ffffff;
   border: 1px solid rgba(255,255,255,0.16);
+  margin-bottom: 10px;
 }
 .hero-title { font-size: 2.2rem; font-weight: 800; margin-bottom: 8px; line-height: 1.1; }
 .hero-sub { font-size: 1.02rem; opacity: 0.95; max-width: 860px; }
@@ -70,12 +74,19 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
   border-radius: 14px;
   padding: 14px 16px;
   background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+  color: #18324f !important;
+  margin: 8px 0 14px 0;
+  line-height: 1.35;
 }
 .card {
   border: 1px solid #e2e8f0;
   border-radius: 16px;
   padding: 16px;
   background: #ffffff;
+  color: #18324f !important;
+  margin-bottom: 12px;
+  min-height: 142px;
+  box-shadow: 0 1px 2px rgba(15, 35, 70, 0.04);
 }
 .tag {
   display: inline-block;
@@ -93,8 +104,14 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
   padding: 14px 18px;
   background: linear-gradient(130deg, #f8fafc 0%, #eef5ff 100%);
   border: 1px solid #dbe8ff;
+  color: #10243f !important;
 }
 .muted { color: #546173; font-size: 0.92rem; }
+[data-testid="stMetricLabel"], [data-testid="stMetricValue"] { color: #10243f !important; }
+[data-testid="stDataFrame"] { border: 1px solid #dbe5f1; border-radius: 10px; }
+[data-testid="stDownloadButton"] button, [data-testid="baseButton-secondary"], [data-testid="baseButton-primary"] {
+  border-radius: 10px !important;
+}
 </style>
 """,
         unsafe_allow_html=True,
@@ -508,29 +525,6 @@ def _thumbnail_hooks(product_name: str, must_keywords: list[str], channel_row: p
     return [hook1, hook2, hook3]
 
 
-def _scatter_text_alignment(scored_df: pd.DataFrame) -> plt.Figure:
-    d = scored_df.copy()
-    if "median_views" not in d.columns:
-        d["median_views"] = 0.0
-    size = 20 + 90 * (np.log1p(d["median_views"].fillna(0)) / max(np.log1p(d["median_views"].fillna(0)).max(), 1e-6))
-
-    fig, ax = plt.subplots(figsize=(8.8, 5.6))
-    sc = ax.scatter(
-        d["tfidf_similarity"].fillna(0),
-        d["semantic_score"].fillna(0),
-        c=d.get("evidence_score", pd.Series(np.zeros(len(d)))).fillna(0),
-        s=size,
-        cmap="viridis",
-        alpha=0.75,
-    )
-    ax.set_xlabel("TF-IDF Similarity")
-    ax.set_ylabel("Semantic Alignment")
-    ax.set_title("Text Match Map (Size: Median Views, Color: Data Reliability)")
-    fig.colorbar(sc, ax=ax, fraction=0.03, pad=0.02, label="Evidence")
-    fig.tight_layout()
-    return fig
-
-
 def _render_landing() -> None:
     st.markdown(
         """
@@ -809,7 +803,7 @@ def _render_top_matches(result: dict, req: dict) -> None:
     if score_fig is not None:
         st.plotly_chart(score_fig, use_container_width=True, key="topmatch_score_breakdown")
     else:
-        st.pyplot(score_breakdown_figure(ranked))
+        st.info("Interactive chart unavailable because Plotly is not installed.")
     st.download_button(
         "Download Current Top-N as CSV",
         data=ranked.to_csv(index=False),
@@ -960,7 +954,7 @@ def _render_network_studio(result: dict) -> None:
         st.caption("Interactive network: pan/zoom/hover enabled. Use node picker below for detailed channel stats.")
         _safe_plotly_chart(net_fig, key="network_studio_plotly")
     else:
-        st.pyplot(network_figure(graph, scored, top_nodes=top_nodes, min_edge_weight=min_edge_weight))
+        st.info("Interactive network unavailable because Plotly is not installed.")
 
     if not net_nodes.empty:
         node_options = net_nodes["_channel_id"].tolist()
@@ -985,7 +979,7 @@ def _render_network_studio(result: dict) -> None:
     if comm_fig is not None:
         st.plotly_chart(comm_fig, use_container_width=True, key="community_plotly")
     else:
-        st.pyplot(community_figure(scored, top_k=top_comms, include_micro=include_micro))
+        st.info("Interactive community chart unavailable because Plotly is not installed.")
 
     c1, c2 = st.columns([2, 1])
     c1.markdown("### Community Diagnostics")
@@ -1056,7 +1050,7 @@ def _render_text_intelligence(result: dict, req: dict) -> None:
         )
         st.plotly_chart(fig, use_container_width=True, key="text_scatter_plotly")
     else:
-        st.pyplot(_scatter_text_alignment(subset))
+        st.info("Interactive scatter unavailable because Plotly is not installed.")
 
     terms = _top_terms(subset, top_n=top_term_n, min_df=min_df_terms)
     if not terms.empty:
@@ -1079,13 +1073,7 @@ def _render_text_intelligence(result: dict, req: dict) -> None:
             )
             st.plotly_chart(fig_terms, use_container_width=True, key="text_terms_plotly")
         else:
-            fig, ax = plt.subplots(figsize=(9.4, 5.6))
-            show = terms.head(20).iloc[::-1]
-            ax.barh(show["term"], show["count"], color="#4BA3C7")
-            ax.set_xlabel("Frequency")
-            ax.set_title("Top Frequent Terms in Candidate Channel Text")
-            fig.tight_layout()
-            st.pyplot(fig)
+            st.info("Interactive term chart unavailable because Plotly is not installed.")
 
     st.markdown("### Keyword Coverage Matrix")
     kw_text = st.text_input(
@@ -1117,14 +1105,7 @@ def _render_text_intelligence(result: dict, req: dict) -> None:
             )
             st.plotly_chart(fig_cov, use_container_width=True, key="keyword_coverage_plotly")
         else:
-            fig2, ax2 = plt.subplots(figsize=(8.8, 4.6))
-            ax2.bar(coverage_rate.index.tolist(), coverage_rate.values.tolist(), color="#6BCB77")
-            ax2.set_ylim(0, 1)
-            ax2.set_ylabel("Coverage Rate")
-            ax2.set_title("Keyword Coverage Across Top Candidate Channels")
-            ax2.tick_params(axis="x", rotation=25)
-            fig2.tight_layout()
-            st.pyplot(fig2)
+            st.info("Interactive keyword coverage chart unavailable because Plotly is not installed.")
     else:
         st.caption("No keyword matrix available for current settings.")
 
@@ -1144,7 +1125,14 @@ def _render_text_intelligence(result: dict, req: dict) -> None:
 
 
 def _render_ml_studio(result: dict, req: dict) -> None:
+    if not PLOTLY_AVAILABLE:
+        st.error("Plotly is required for interactive ML charts. Please install dependencies from requirements.txt.")
+        return
+
     cv_df = result["ml_cv_results"].copy()
+    pred_df = result.get("ml_pred_actual", pd.DataFrame()).copy()
+    shap_summary_df = result.get("ml_shap_summary", pd.DataFrame()).copy()
+    shap_dep_df = result.get("ml_shap_dependence", pd.DataFrame()).copy()
 
     st.markdown(
         "For client communication: this block validates whether advanced models materially improve prediction over a simple baseline."
@@ -1183,26 +1171,23 @@ def _render_ml_studio(result: dict, req: dict) -> None:
         st.info("ML benchmark was not run in this session. Re-run with ML enabled to populate this tab.")
         return
 
-    if PLOTLY_AVAILABLE:
-        p = cv_df[cv_df["status"].isin(["ok", "reference"])].copy()
-        p = p.sort_values("rmse_mean", ascending=True)
-        fig = px.bar(
-            p,
-            x="model",
-            y="rmse_mean",
-            color="status",
-            hover_data={"rmse_mean": ":.5f", "mae_mean": ":.5f", "r2_mean": ":.5f"},
-            color_discrete_map={"ok": "#2E6FDC", "reference": "#94A3B8"},
-        )
-        fig.update_layout(
-            title="5-Fold CV RMSE by Model (Interactive)",
-            xaxis_title="Model",
-            yaxis_title="RMSE",
-            margin=dict(l=10, r=10, t=50, b=10),
-        )
-        st.plotly_chart(fig, use_container_width=True, key="ml_cv_plotly")
-    else:
-        st.pyplot(model_cv_figure(cv_df))
+    p = cv_df[cv_df["status"].isin(["ok", "reference"])].copy()
+    p = p.sort_values("rmse_mean", ascending=True)
+    fig = px.bar(
+        p,
+        x="model",
+        y="rmse_mean",
+        color="status",
+        hover_data={"rmse_mean": ":.5f", "mae_mean": ":.5f", "r2_mean": ":.5f"},
+        color_discrete_map={"ok": "#2E6FDC", "reference": "#94A3B8"},
+    )
+    fig.update_layout(
+        title="5-Fold CV RMSE by Model (Interactive)",
+        xaxis_title="Model",
+        yaxis_title="RMSE",
+        margin=dict(l=10, r=10, t=50, b=10),
+    )
+    st.plotly_chart(fig, use_container_width=True, key="ml_cv_plotly")
     st.dataframe(cv_df, use_container_width=True)
 
     model_choice = st.selectbox("Inspect Model", cv_df["model"].tolist(), index=0)
@@ -1217,19 +1202,82 @@ def _render_ml_studio(result: dict, req: dict) -> None:
     for note in result.get("ml_notes", []):
         st.info(note)
 
-    if result.get("ml_plot_path") and Path(result["ml_plot_path"]).exists():
-        st.image(result["ml_plot_path"], caption="CV RMSE Comparison", use_container_width=True)
-    if result.get("ml_pred_plot_path") and Path(result["ml_pred_plot_path"]).exists():
-        st.image(result["ml_pred_plot_path"], caption="Predicted vs Actual", use_container_width=True)
+    if not pred_df.empty and {"actual", "predicted"}.issubset(pred_df.columns):
+        pred_df["error"] = (pred_df["predicted"] - pred_df["actual"]).abs()
+        fig_pred = px.scatter(
+            pred_df,
+            x="actual",
+            y="predicted",
+            color="error",
+            color_continuous_scale="Viridis",
+            opacity=0.65,
+            hover_data={"actual": ":.4f", "predicted": ":.4f", "error": ":.4f"},
+        )
+        minv = float(min(pred_df["actual"].min(), pred_df["predicted"].min()))
+        maxv = float(max(pred_df["actual"].max(), pred_df["predicted"].max()))
+        fig_pred.add_trace(
+            go.Scatter(
+                x=[minv, maxv],
+                y=[minv, maxv],
+                mode="lines",
+                line=dict(color="#ef4444", dash="dash"),
+                name="Perfect Fit",
+                showlegend=False,
+            )
+        )
+        fig_pred.update_layout(
+            title="Predicted vs Actual Engagement Target (Interactive)",
+            xaxis_title="Actual",
+            yaxis_title="Predicted",
+            margin=dict(l=10, r=10, t=50, b=10),
+            coloraxis_colorbar=dict(title="Abs Error"),
+        )
+        st.plotly_chart(fig_pred, use_container_width=True, key="ml_pred_actual_plotly")
 
-    shap_paths = result.get("shap_plot_paths", [])
-    if shap_paths:
-        st.markdown("### SHAP Explainability")
-        for p in shap_paths:
-            if Path(p).exists():
-                st.image(p, caption=Path(p).name, use_container_width=True)
+    st.markdown("### SHAP Explainability (Interactive)")
+    if not shap_summary_df.empty:
+        s = shap_summary_df.sort_values("mean_abs_shap", ascending=True).tail(15)
+        fig_shap = px.bar(
+            s,
+            x="mean_abs_shap",
+            y="feature",
+            orientation="h",
+            color="mean_abs_shap",
+            color_continuous_scale="Blues",
+            hover_data={"mean_abs_shap": ":.5f"},
+        )
+        fig_shap.update_layout(
+            title="SHAP Feature Importance",
+            xaxis_title="Mean |SHAP|",
+            yaxis_title="Feature",
+            margin=dict(l=10, r=10, t=50, b=10),
+            coloraxis_showscale=False,
+        )
+        st.plotly_chart(fig_shap, use_container_width=True, key="ml_shap_summary_plotly")
     else:
-        st.caption("SHAP figures were not generated in this run.")
+        st.caption("SHAP summary data is unavailable for this run.")
+
+    if not shap_dep_df.empty and {"feature", "feature_value", "shap_value"}.issubset(shap_dep_df.columns):
+        features = shap_dep_df["feature"].dropna().astype(str).unique().tolist()
+        if features:
+            fsel = st.selectbox("SHAP Dependence Feature", features, index=0)
+            d = shap_dep_df[shap_dep_df["feature"] == fsel].copy()
+            if not d.empty:
+                fig_dep = px.scatter(
+                    d,
+                    x="feature_value",
+                    y="shap_value",
+                    color="shap_value",
+                    color_continuous_scale="RdBu",
+                    hover_data={"feature_value": ":.4f", "shap_value": ":.4f"},
+                )
+                fig_dep.update_layout(
+                    title=f"SHAP Dependence: {fsel}",
+                    xaxis_title="Feature Value",
+                    yaxis_title="SHAP Value",
+                    margin=dict(l=10, r=10, t=50, b=10),
+                )
+                st.plotly_chart(fig_dep, use_container_width=True, key=f"ml_shap_dep_{fsel}")
 
 
 def _render_roi_lab(result: dict, req: dict) -> None:
@@ -1281,7 +1329,7 @@ def _render_roi_lab(result: dict, req: dict) -> None:
         )
         st.plotly_chart(fig_funnel, use_container_width=True, key="roi_funnel_plotly")
     else:
-        st.pyplot(roi_funnel_figure(roi))
+        st.info("Interactive ROI funnel unavailable because Plotly is not installed.")
     st.caption(f"ROAS range: {roi.get('roas_low', 0):.2f}x to {roi.get('roas_high', 0):.2f}x (scenario estimate).")
 
     st.markdown("### Budget Sensitivity")
@@ -1309,18 +1357,7 @@ def _render_roi_lab(result: dict, req: dict) -> None:
         )
         st.plotly_chart(fig, use_container_width=True, key="roi_sensitivity_plotly")
     else:
-        fig, ax1 = plt.subplots(figsize=(9.2, 4.8))
-        ax1.plot(budget_grid, roas_grid, marker="o", color="#0E7490", label="ROAS")
-        ax1.set_xlabel("Budget (USD)")
-        ax1.set_ylabel("ROAS", color="#0E7490")
-        ax1.tick_params(axis="y", labelcolor="#0E7490")
-        ax2 = ax1.twinx()
-        ax2.plot(budget_grid, conv_grid, marker="s", color="#16A34A", label="Conversions")
-        ax2.set_ylabel("Conversions", color="#16A34A")
-        ax2.tick_params(axis="y", labelcolor="#16A34A")
-        ax1.set_title("Budget Sensitivity: ROAS and Conversions")
-        fig.tight_layout()
-        st.pyplot(fig)
+        st.info("Interactive ROI sensitivity chart unavailable because Plotly is not installed.")
 
 
 def _render_content_strategy(result: dict, req: dict) -> None:
