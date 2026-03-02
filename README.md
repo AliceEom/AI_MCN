@@ -45,6 +45,11 @@ The pipeline will automatically try to download:
 
 on startup. If download is successful, full data is used automatically.
 
+Default behavior in this repo:
+- If no `GDRIVE_*` secret/env is set, it falls back to the built-in folder URL:
+  - `https://drive.google.com/drive/folders/1fB_c_o3ma2eA2ypHP25eFvQvx5P95FX_?usp=drive_link`
+- You can override it by setting `GDRIVE_FOLDER_URL` or file-specific ids.
+
 You can also test bootstrap manually:
 
 ```bash

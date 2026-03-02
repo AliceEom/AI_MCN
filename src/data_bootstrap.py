@@ -21,6 +21,7 @@ ENV_KEYS = {
 }
 
 FOLDER_ENV_KEYS = ("GDRIVE_FOLDER_ID", "GDRIVE_FOLDER_URL")
+DEFAULT_GDRIVE_FOLDER_URL = "https://drive.google.com/drive/folders/1fB_c_o3ma2eA2ypHP25eFvQvx5P95FX_?usp=drive_link"
 
 
 def _extract_file_id(value: str) -> str:
@@ -141,6 +142,7 @@ def ensure_full_data_from_gdrive(data_dir: Path, force: bool = False) -> dict[st
         "missing_env": [],
         "errors": [],
         "folder_used": False,
+        "default_folder_used": False,
     }
 
     pending_folder: list[tuple[str, str, Path]] = []
@@ -169,6 +171,9 @@ def ensure_full_data_from_gdrive(data_dir: Path, force: bool = False) -> dict[st
 
     if pending_folder:
         folder_raw = os.getenv(FOLDER_ENV_KEYS[0], "").strip() or os.getenv(FOLDER_ENV_KEYS[1], "").strip()
+        if not folder_raw:
+            folder_raw = DEFAULT_GDRIVE_FOLDER_URL
+            report["default_folder_used"] = True
         folder_id = _extract_folder_id(folder_raw)
         if not folder_raw or not folder_id:
             for key, filename, _ in pending_folder:
