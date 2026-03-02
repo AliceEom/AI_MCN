@@ -31,6 +31,14 @@ from src.roi_simulation import simulate_roi
 st.set_page_config(page_title="AI-MCN Demo", layout="wide")
 
 MODEL_OPTIONS = ["LinearRegression", "LASSO", "Ridge", "CART", "RandomForest", "LightGBM"]
+SIGNAL_GUIDE = [
+    ("SNA", "Network centrality in the creator graph built from shared topical tags."),
+    ("TF-IDF", "Keyword-level match between campaign brief text and channel content text."),
+    ("Semantic", "Meaning-level alignment beyond exact keywords (topic/context similarity)."),
+    ("Tone", "Style/voice compatibility with the campaign intent (e.g., educational vs. review)."),
+    ("Engagement", "Observed response quality from likes/comments relative to views."),
+    ("ML", "Predicted upside from benchmark ML models (set to 0 when ML block is disabled)."),
+]
 
 
 def _inject_css() -> None:
@@ -346,6 +354,24 @@ def _safe_plotly_chart(fig: object, key: str) -> dict | None:
     except TypeError:
         st.plotly_chart(fig, use_container_width=True, key=key)
         return None
+
+
+def _render_signal_guide(container: st.delta_generator.DeltaGenerator, compact: bool = False) -> None:
+    title = "❗ Signal Guide"
+    if hasattr(container, "popover"):
+        with container.popover(title):
+            st.caption("Each signal is normalized to 0-1. Higher means better fit on that dimension.")
+            for name, desc in SIGNAL_GUIDE:
+                st.markdown(f"**{name}**: {desc}")
+            if not compact:
+                st.caption("Final Match Score applies weighted signals first, then multiplies by Reliability.")
+    else:
+        with container.expander(title, expanded=False):
+            st.caption("Each signal is normalized to 0-1. Higher means better fit on that dimension.")
+            for name, desc in SIGNAL_GUIDE:
+                st.markdown(f"**{name}**: {desc}")
+            if not compact:
+                st.caption("Final Match Score applies weighted signals first, then multiplies by Reliability.")
 
 
 def _plotly_score_breakdown(top_df: pd.DataFrame):
@@ -944,6 +970,9 @@ def _render_top_matches(result: dict, req: dict) -> None:
         "Reliability Multiplier automatically down-weights channels with weak evidence "
         "(few videos, low interaction stability, or limited recent signals)."
     )
+    g1, g2 = st.columns([6, 1])
+    g1.caption("Top Influencer Score Breakdown uses six signals. Click the guide for definitions.")
+    _render_signal_guide(g2, compact=False)
 
     scored["display_score"] = _apply_ranking_strategy(scored, ranking_strategy, include_ml=req["enable_ml"])
     ranked = scored[(scored["display_score"] >= min_match) & (scored["evidence_score"] >= min_evidence)].copy()
@@ -1024,8 +1053,11 @@ def _render_top_matches(result: dict, req: dict) -> None:
                     )
                     cbar2.markdown(f"**Community ID:** {int(_num(row.get('community_id')))}")
 
+            sig_left, sig_right = cols[1].columns([7, 1])
+            sig_left.markdown("**Signal Breakdown**")
+            _render_signal_guide(sig_right, compact=True)
             cols[1].markdown(
-                f"**Signal Breakdown:** SNA {_num(row.get('sna_score')):.3f} | TF-IDF {_num(row.get('tfidf_similarity')):.3f} | "
+                f"SNA {_num(row.get('sna_score')):.3f} | TF-IDF {_num(row.get('tfidf_similarity')):.3f} | "
                 f"Semantic {_num(row.get('semantic_score')):.3f} | Tone {_num(row.get('tone_match_score')):.3f} | "
                 f"Engagement {_num(row.get('engagement_score')):.3f} | ML {_num(row.get('ml_potential_score')):.3f}"
             )
@@ -1469,6 +1501,11 @@ def _render_roi_lab(result: dict, req: dict) -> None:
     base_roi = result.get("roi_result", {})
 
     st.markdown("### ROI Scenario Playground")
+    st.info(
+        "These inputs are scenario assumptions, not fixed targets. "
+        "CPM/CTR/CVR/AOV are used to simulate outcomes (Impressions, Clicks, Conversions, ROAS). "
+        "Adjust values to test what conditions are needed to reach your business goals."
+    )
     p1, p2, p3, p4, p5 = st.columns(5)
     budget = p1.number_input("Budget (USD)", min_value=1000.0, max_value=1000000.0, value=base_budget, step=1000.0)
     cpm = p2.number_input("CPM (USD)", min_value=5.0, max_value=80.0, value=float(base_roi.get("cpm", 18.0)), step=0.5)
