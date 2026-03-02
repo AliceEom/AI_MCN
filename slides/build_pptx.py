@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pandas as pd
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
@@ -13,6 +14,7 @@ from pptx.util import Inches, Pt
 ROOT = Path(__file__).resolve().parents[1]
 SLIDES_DIR = ROOT / "slides"
 ASSETS_DIR = SLIDES_DIR / "assets"
+DATA_DIR = ROOT / "data"
 SUMMARY_JSON = ROOT / "artifacts" / "reports" / "presentation_summary_boj.json"
 OUT_PPTX = SLIDES_DIR / "AI_MCN_Final_Presentation_EN.pptx"
 
@@ -128,6 +130,42 @@ def image_path(name: str) -> Path:
     return p
 
 
+def compute_keyword_snapshot() -> dict[str, object]:
+    candidates = [
+        DATA_DIR / "videos_text_ready_combined.csv",
+        DATA_DIR / "videos_text_ready_demo.csv",
+    ]
+    source = next((p for p in candidates if p.exists()), None)
+    if source is None:
+        return {"source_file": "N/A", "total_videos": 0, "total_channels": 0, "keywords": {}}
+
+    usecols = ["_channel_id", "snippet__title", "snippet__description", "snippet__tags"]
+    df = pd.read_csv(source, usecols=usecols, low_memory=False)
+    text = (
+        df["snippet__title"].fillna("")
+        + " "
+        + df["snippet__description"].fillna("")
+        + " "
+        + df["snippet__tags"].fillna("")
+    ).str.lower()
+
+    keywords = ["sunscreen", "spf", "k-beauty", "beauty of joseon", "cerave"]
+    out: dict[str, dict[str, int]] = {}
+    for kw in keywords:
+        m = text.str.contains(kw, regex=False)
+        out[kw] = {
+            "videos": int(m.sum()),
+            "channels": int(df.loc[m, "_channel_id"].astype(str).nunique()),
+        }
+
+    return {
+        "source_file": source.name,
+        "total_videos": int(len(df)),
+        "total_channels": int(df["_channel_id"].astype(str).nunique()),
+        "keywords": out,
+    }
+
+
 def build() -> Path:
     if not SUMMARY_JSON.exists():
         raise FileNotFoundError(f"Missing summary file: {SUMMARY_JSON}")
@@ -139,6 +177,7 @@ def build() -> Path:
     dataset = summary.get("dataset", {})
     bias = summary.get("bias_report", {})
     ml_table = summary.get("ml_table", [])
+    kw_snapshot = compute_keyword_snapshot()
 
     best_model = summary.get("ml_best_model", "N/A")
     baseline_rmse = next((x.get("rmse_mean", 0.0) for x in ml_table if x.get("model") == "BaselineMedian"), 0.0)
@@ -207,6 +246,48 @@ def build() -> Path:
 
     # 3
     slide = prs.slides.add_slide(blank)
+    add_title(slide, "Why Beauty of Joseon? (Selection + Research)")
+    add_card(
+        slide,
+        0.65,
+        2.0,
+        5.95,
+        4.75,
+        "Why this brand for the project",
+        [
+            "Clear campaign narrative: sunscreen + lightweight skincare.",
+            "Distinct positioning for storytelling: heritage-inspired K-beauty.",
+            "Good benchmark pair with CeraVe in the same category.",
+            "Suitable for explainable matching, not only popularity ranking.",
+        ],
+    )
+    kw = kw_snapshot.get("keywords", {})
+
+    def _fmt(keyword: str) -> str:
+        row = kw.get(keyword, {})
+        return f"{keyword}: {int(row.get('videos', 0)):,} videos | {int(row.get('channels', 0)):,} channels"
+
+    add_card(
+        slide,
+        6.72,
+        2.0,
+        5.95,
+        4.75,
+            "Brand research and dataset evidence",
+        [
+            "Positioning: gentle, daily-use K-beauty skincare message.",
+            "Audience focus: sensitive/acne-aware Gen Z and Millennials.",
+            f"Dataset source: {kw_snapshot.get('source_file', 'N/A')} (n={int(kw_snapshot.get('total_videos', 0)):,} videos)",
+            _fmt("sunscreen"),
+            _fmt("spf"),
+            _fmt("beauty of joseon"),
+            _fmt("cerave"),
+        ],
+    )
+    add_footer(slide, "Brand choice is explicit, defensible, and data-backed")
+
+    # 4
+    slide = prs.slides.add_slide(blank)
     add_title(slide, "Assignment Requirements Check")
     rows = [
         ("Pick a problem and client", "BOJ influencer matching scenario"),
@@ -232,7 +313,7 @@ def build() -> Path:
                 p.font.color.rgb = RGBColor(17, 34, 63)
     add_footer(slide, "Assignment deliverables: code + slides")
 
-    # 4
+    # 5
     slide = prs.slides.add_slide(blank)
     add_title(slide, "Data Overview (BOJ Run)")
     kpis = [
@@ -275,7 +356,7 @@ def build() -> Path:
     )
     add_footer(slide, "Data-driven prototype with fixed reproducible input")
 
-    # 5
+    # 6
     slide = prs.slides.add_slide(blank)
     add_title(slide, "Method Pipeline")
     add_bullets(
@@ -297,7 +378,7 @@ def build() -> Path:
     )
     add_footer(slide, "Rubric 3: Technical aspects and method choice")
 
-    # 6
+    # 7
     slide = prs.slides.add_slide(blank)
     add_title(slide, "Model Evaluation Results")
     slide.shapes.add_picture(str(image_path("model_benchmark_rmse.png")), Inches(0.8), Inches(2.0), height=Inches(4.7))
@@ -317,7 +398,7 @@ def build() -> Path:
     )
     add_footer(slide, "6 models compared under the same CV protocol")
 
-    # 7
+    # 8
     slide = prs.slides.add_slide(blank)
     add_title(slide, "Explainability (SHAP)")
     slide.shapes.add_picture(str(image_path("shap_summary_LightGBM.png")), Inches(0.75), Inches(2.0), height=Inches(4.8))
@@ -336,7 +417,7 @@ def build() -> Path:
     )
     add_footer(slide, "Rubric 3: Evaluation and sanity checking")
 
-    # 8
+    # 9
     slide = prs.slides.add_slide(blank)
     add_title(slide, "Top-10 BOJ Recommendations")
     slide.shapes.add_picture(str(image_path("top10_final_scores.png")), Inches(0.72), Inches(2.0), height=Inches(4.95))
@@ -344,7 +425,7 @@ def build() -> Path:
     t = ", ".join(top3) if top3 else "N/A"
     add_footer(slide, f"Top 3 channels: {t}")
 
-    # 9
+    # 10
     slide = prs.slides.add_slide(blank)
     add_title(slide, "Guardrails Against Bad Recommendations")
     slide.shapes.add_picture(str(image_path("evidence_vs_finalscore_top10.png")), Inches(0.75), Inches(2.0), height=Inches(4.85))
@@ -365,7 +446,7 @@ def build() -> Path:
     )
     add_footer(slide, "Reduced popularity bias with evidence-based filtering")
 
-    # 10
+    # 11
     slide = prs.slides.add_slide(blank)
     add_title(slide, "Network Diversity Diagnostics")
     slide.shapes.add_picture(str(image_path("community_distribution_clean.png")), Inches(0.75), Inches(2.0), height=Inches(4.8))
@@ -384,7 +465,7 @@ def build() -> Path:
     )
     add_footer(slide, "Community-aware matching for healthier shortlist diversity")
 
-    # 11
+    # 12
     slide = prs.slides.add_slide(blank)
     add_title(slide, "ROI Scenario (Business Lens)")
     slide.shapes.add_picture(str(image_path("roi_funnel_base.png")), Inches(0.75), Inches(2.0), height=Inches(4.9))
@@ -405,7 +486,7 @@ def build() -> Path:
     )
     add_footer(slide, "Scenario estimate only, not causal guarantee")
 
-    # 12
+    # 13
     slide = prs.slides.add_slide(blank)
     add_title(slide, "Live Demo Flow")
     add_bullets(
@@ -427,7 +508,7 @@ def build() -> Path:
     )
     add_footer(slide, "Rubric 4: Demo clarity and storytelling flow")
 
-    # 13
+    # 14
     slide = prs.slides.add_slide(blank)
     add_title(slide, "Limitations and Future Work")
     add_card(
@@ -458,7 +539,7 @@ def build() -> Path:
     )
     add_footer(slide, "Honest caveats + practical roadmap")
 
-    # 14
+    # 15
     slide = prs.slides.add_slide(blank)
     add_title(slide, "Rubric Alignment (Target: 9-10)")
     rows = [
@@ -485,7 +566,7 @@ def build() -> Path:
                 p.font.color.rgb = RGBColor(20, 38, 66)
     add_footer(slide, "Directly mapped to MSIS 521 project rubric")
 
-    # 15
+    # 16
     slide = prs.slides.add_slide(blank)
     add_title(slide, "15-Minute Delivery Plan")
     add_bullets(
@@ -515,7 +596,7 @@ def build() -> Path:
     )
     add_footer(slide, "Time and role clarity improves delivery score")
 
-    # 16
+    # 17
     slide = prs.slides.add_slide(blank)
     add_title(slide, "References and Q&A")
     add_bullets(
@@ -551,4 +632,3 @@ def build() -> Path:
 if __name__ == "__main__":
     out = build()
     print(out)
-

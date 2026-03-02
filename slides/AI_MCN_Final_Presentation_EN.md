@@ -25,7 +25,28 @@
 
 ---
 
-# 2) Project Scope (Well-Scoped for a Quarter)
+# 2) Why Beauty of Joseon? (Selection Rationale + Brand Research)
+
+Why we selected BOJ:
+- Clear and defensible campaign theme for the class demo: sunscreen + lightweight skincare.
+- Distinct positioning for storytelling: heritage-inspired K-beauty with ingredient-focused messaging.
+- Strong comparison design with CeraVe (different brand positioning, same skincare category).
+
+Brand research snapshot (project-facing):
+- Positioning: modernized K-beauty skincare brand with gentle, daily-use value proposition.
+- Audience hypothesis: Gen Z/Millennial users focused on sensitive-skin-safe SPF and acne-aware routines.
+- Campaign need: choose creators by contextual fit + evidence quality, not only popularity.
+
+Dataset evidence supporting feasibility (`videos_text_ready_combined.csv`, n=67,283):
+- `sunscreen`: 3,981 videos across 340 channels
+- `spf`: 3,850 videos across 344 channels
+- `k-beauty`: 636 videos across 76 channels
+- `beauty of joseon`: 286 videos across 69 channels
+- `cerave`: 747 videos across 118 channels
+
+---
+
+# 3) Project Scope (Well-Scoped for a Quarter)
 
 **In-scope (prototype):**
 - End-to-end AI matching workflow using existing YouTube dataset.
@@ -38,7 +59,7 @@
 
 ---
 
-# 3) Assignment Requirements Check
+# 4) Assignment Requirements Check
 
 This project satisfies the assignment requirements:
 - Pick a client/problem: done (BOJ use case).
@@ -53,7 +74,7 @@ Deliverables prepared:
 
 ---
 
-# 4) Data and Coverage
+# 5) Data and Coverage
 
 Data source:
 - Team-collected YouTube API dataset (beauty-related channels/videos/comments).
@@ -70,7 +91,7 @@ Files used:
 
 ---
 
-# 5) Method Overview (Hybrid AI Pipeline)
+# 6) Method Overview (Hybrid AI Pipeline)
 
 1. Data cleaning + beauty filter  
 2. Channel-level aggregation  
@@ -84,7 +105,7 @@ Files used:
 
 ---
 
-# 6) Technical Stack and Modeling
+# 7) Technical Stack and Modeling
 
 **Core methods implemented:**
 - Linear Regression, LASSO, Ridge
@@ -98,7 +119,7 @@ Files used:
 
 ---
 
-# 7) Model Evaluation Results (BOJ Run)
+# 8) Model Evaluation Results (BOJ Run)
 
 Best model: **LightGBM**
 
@@ -116,7 +137,7 @@ Visual:
 
 ---
 
-# 8) Explainability (SHAP)
+# 9) Explainability (SHAP)
 
 Why this matters:
 - Helps non-technical stakeholders trust the ranking logic.
@@ -127,7 +148,7 @@ Visual:
 
 ---
 
-# 9) Top-10 BOJ Recommendations
+# 10) Top-10 BOJ Recommendations
 
 Top recommendations from this run:
 1. AliceintheRabbitHole  
@@ -146,7 +167,7 @@ Visual:
 
 ---
 
-# 10) Quality Guardrails and Bias Mitigation
+# 11) Quality Guardrails and Bias Mitigation
 
 Guardrails implemented:
 - Evidence-based penalty for tiny/low-signal channels.
@@ -161,7 +182,7 @@ Visual:
 
 ---
 
-# 11) Network Diversity Findings
+# 12) Network Diversity Findings
 
 Community results (excluding micro/isolated channels):
 - Non-micro communities discovered: **6**
@@ -176,7 +197,7 @@ Visual:
 
 ---
 
-# 12) ROI Scenario (Business Lens)
+# 13) ROI Scenario (Business Lens)
 
 Base scenario assumptions:
 - Budget: **$50,000**
@@ -194,7 +215,7 @@ Visual:
 
 ---
 
-# 13) Demo Flow (What We Show Live)
+# 14) Demo Flow (What We Show Live)
 
 1. Enter campaign input (brand/product/audience/keywords/budget).
 2. Run analysis pipeline.
@@ -207,7 +228,7 @@ Visual:
 
 ---
 
-# 14) Real-World Impact
+# 15) Real-World Impact
 
 Who can use this:
 - Brand managers
@@ -223,7 +244,7 @@ Potential impact:
 
 ---
 
-# 15) Limitations and Honest Caveats
+# 16) Limitations and Honest Caveats
 
 - Current prototype uses a pre-collected YouTube dataset (not live multi-platform ingestion).
 - ROI is a scenario simulation, not causal proof.
@@ -237,7 +258,7 @@ Planned next steps:
 
 ---
 
-# 16) Rubric Alignment (How We Target 9-10)
+# 17) Rubric Alignment (How We Target 9-10)
 
 **(1) Topic choice, scope, interest**
 - Clear, creative, and feasible scope: AI influencer matching + explainability + business outputs.
@@ -254,7 +275,7 @@ Planned next steps:
 
 ---
 
-# 17) Team Delivery Plan (15-Minute Timing)
+# 18) Team Delivery Plan (15-Minute Timing)
 
 - 0:00–2:00: Problem, client context, and scope
 - 2:00–5:30: Data and method pipeline
@@ -270,7 +291,7 @@ Suggested speaking split:
 
 ---
 
-# 18) References
+# 19) References
 
 - Course assignment brief and rubric PDFs (Canvas)
 - YouTube Data API documentation
@@ -278,4 +299,3 @@ Suggested speaking split:
 - LightGBM documentation
 - SHAP documentation
 - Streamlit documentation
-
