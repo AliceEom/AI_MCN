@@ -24,3 +24,6 @@ data/master_prd_slim.csv
 
 # Local notes
 .claude/
+
+# Streamlit local secrets
+.streamlit/secrets.toml

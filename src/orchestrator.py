@@ -8,8 +8,9 @@ import pandas as pd
 
 from .channel_details import build_channel_detail_table
 from .channel_media import build_channel_media
-from .config import CACHE_DIR, COMMENTS_CSV, DEFAULT_CONFIG, MASTER_CSV, PLOTS_DIR, REPORTS_DIR, VIDEOS_CSV, PipelineConfig
+from .config import CACHE_DIR, DATA_DIR, DEFAULT_CONFIG, PLOTS_DIR, REPORTS_DIR, PipelineConfig, resolve_data_paths
 from .content_generation import generate_executive_memo, generate_strategies
+from .data_bootstrap import ensure_full_data_from_gdrive
 from .data_prep import load_data, prepare_all
 from .ml_modeling import MLArtifacts, run_ml_suite
 from .network_scoring import build_channel_graph, compute_network_scores
@@ -89,7 +90,10 @@ def run_pipeline(
     ensure_dir(PLOTS_DIR)
     ensure_dir(REPORTS_DIR)
 
-    videos_raw, comments_raw, master_raw = load_data(VIDEOS_CSV, COMMENTS_CSV, MASTER_CSV)
+    # If Google Drive ids/urls are provided via env, bootstrap full data automatically.
+    ensure_full_data_from_gdrive(DATA_DIR)
+    videos_csv, comments_csv, master_csv = resolve_data_paths()
+    videos_raw, comments_raw, master_raw = load_data(videos_csv, comments_csv, master_csv)
 
     brief = build_brand_brief(brand_params)
     prepared = prepare_all(
@@ -199,6 +203,11 @@ def run_pipeline(
 
     return {
         "timestamp_utc": utc_now_iso(),
+        "data_sources": {
+            "videos_csv": str(videos_csv),
+            "comments_csv": str(comments_csv),
+            "master_csv": str(master_csv),
+        },
         "brand_brief": asdict(brief),
         "videos_df": prepared.videos,
         "channels_df": channels,

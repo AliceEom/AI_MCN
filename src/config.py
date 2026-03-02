@@ -20,18 +20,23 @@ def _prefer_existing(*paths: Path) -> Path:
     return paths[0]
 
 
-VIDEOS_CSV = _prefer_existing(
-    DATA_DIR / "videos_text_ready_combined.csv",
-    DATA_DIR / "videos_text_ready_demo.csv",
-)
-COMMENTS_CSV = _prefer_existing(
-    DATA_DIR / "comments_raw_combined.csv",
-    DATA_DIR / "comments_raw_demo.csv",
-)
-MASTER_CSV = _prefer_existing(
-    DATA_DIR / "master_prd_slim_combined.csv",
-    DATA_DIR / "master_prd_slim_demo.csv",
-)
+def resolve_data_paths() -> tuple[Path, Path, Path]:
+    videos_csv = _prefer_existing(
+        DATA_DIR / "videos_text_ready_combined.csv",
+        DATA_DIR / "videos_text_ready_demo.csv",
+    )
+    comments_csv = _prefer_existing(
+        DATA_DIR / "comments_raw_combined.csv",
+        DATA_DIR / "comments_raw_demo.csv",
+    )
+    master_csv = _prefer_existing(
+        DATA_DIR / "master_prd_slim_combined.csv",
+        DATA_DIR / "master_prd_slim_demo.csv",
+    )
+    return videos_csv, comments_csv, master_csv
+
+
+VIDEOS_CSV, COMMENTS_CSV, MASTER_CSV = resolve_data_paths()
 
 
 @dataclass(frozen=True)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 from dataclasses import replace
+import os
 from pathlib import Path
 import re
 import time
@@ -123,6 +124,36 @@ def _init_state() -> None:
     st.session_state.setdefault("run_request", None)
     st.session_state.setdefault("result", None)
     st.session_state.setdefault("last_error", "")
+
+
+def _hydrate_env_from_streamlit_secrets() -> None:
+    keys = [
+        "OPENAI_API_KEY",
+        "YOUTUBE_API_KEY",
+        "GDRIVE_FOLDER_ID",
+        "GDRIVE_FOLDER_URL",
+        "GDRIVE_VIDEOS_FILE_ID",
+        "GDRIVE_COMMENTS_FILE_ID",
+        "GDRIVE_MASTER_FILE_ID",
+        "GDRIVE_VIDEOS_URL",
+        "GDRIVE_COMMENTS_URL",
+        "GDRIVE_MASTER_URL",
+    ]
+    try:
+        secret_keys = set(st.secrets.keys())
+    except Exception:
+        secret_keys = set()
+
+    for key in keys:
+        if os.getenv(key, "").strip():
+            continue
+        if key in secret_keys:
+            try:
+                val = str(st.secrets[key]).strip()
+            except Exception:
+                val = ""
+            if val:
+                os.environ[key] = val
 
 
 def _split_csv_keywords(text: str) -> list[str]:
@@ -682,6 +713,14 @@ def _render_analyzing() -> None:
 def _render_overview(result: dict, req: dict) -> None:
     topn = result["top5_df"].copy()
     scored = result["scored_df"].copy()
+    ds = result.get("data_sources", {}) or {}
+    if ds:
+        st.caption(
+            "Data sources: "
+            f"videos={Path(str(ds.get('videos_csv', 'N/A'))).name}, "
+            f"comments={Path(str(ds.get('comments_csv', 'N/A'))).name}, "
+            f"master={Path(str(ds.get('master_csv', 'N/A'))).name}"
+        )
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Videos Analyzed", f"{len(result['videos_df']):,}")
     c2.metric("Channels Scored", f"{scored['_channel_id'].nunique():,}")
@@ -1567,6 +1606,7 @@ def _render_dashboard() -> None:
 
 def main() -> None:
     _inject_css()
+    _hydrate_env_from_streamlit_secrets()
     _init_state()
 
     if st.session_state.screen == "landing":
