@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 from dataclasses import replace
 from pathlib import Path
+import re
 import time
 
 import numpy as np
@@ -10,6 +11,16 @@ import pandas as pd
 import streamlit as st
 from matplotlib import pyplot as plt
 from sklearn.feature_extraction.text import CountVectorizer
+
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+
+    PLOTLY_AVAILABLE = True
+except Exception:
+    px = None
+    go = None
+    PLOTLY_AVAILABLE = False
 
 from src.config import DEFAULT_CONFIG
 from src.orchestrator import run_pipeline
@@ -239,6 +250,264 @@ def _keyword_coverage(channel_df: pd.DataFrame, keywords: list[str], top_k: int 
     return cov.set_index("channel_title")
 
 
+def _link_button(container: st.delta_generator.DeltaGenerator, label: str, url: str) -> None:
+    if not url:
+        return
+    btn = getattr(container, "link_button", None)
+    if callable(btn):
+        btn(label, url, use_container_width=True)
+    else:
+        container.markdown(f"[{label}]({url})")
+
+
+def _kv_card(container: st.delta_generator.DeltaGenerator, title: str, value: str, subtitle: str = "") -> None:
+    container.markdown(
+        f"""
+<div class="card">
+  <div class="muted">{title}</div>
+  <div style="font-size:1.1rem; font-weight:800; color:#0f2e55; margin-top:4px;">{value}</div>
+  <div style="font-size:0.86rem; color:#5c6f84; margin-top:6px;">{subtitle}</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def _safe_plotly_chart(fig: object, key: str) -> dict | None:
+    try:
+        return st.plotly_chart(
+            fig,
+            use_container_width=True,
+            key=key,
+            on_select="rerun",
+            selection_mode=("points",),
+        )
+    except TypeError:
+        st.plotly_chart(fig, use_container_width=True, key=key)
+        return None
+
+
+def _plotly_score_breakdown(top_df: pd.DataFrame):
+    if not PLOTLY_AVAILABLE or top_df.empty:
+        return None
+    cols = [
+        ("sna_score", "SNA"),
+        ("tfidf_similarity", "TF-IDF"),
+        ("semantic_score", "Semantic"),
+        ("tone_match_score", "Tone"),
+        ("engagement_score", "Engagement"),
+        ("ml_potential_score", "ML Potential"),
+    ]
+    use_cols = [c for c, _ in cols if c in top_df.columns]
+    if not use_cols:
+        return None
+
+    label_map = dict(cols)
+    d = top_df[["channel_title"] + use_cols].copy().rename(columns=label_map)
+    long_df = d.melt(id_vars=["channel_title"], var_name="signal", value_name="score")
+    fig = px.bar(
+        long_df,
+        x="channel_title",
+        y="score",
+        color="signal",
+        barmode="group",
+        hover_data={"score": ":.3f"},
+        color_discrete_sequence=["#4BA3C7", "#2E6FDC", "#4C956C", "#F59E0B", "#0EA5A4", "#A855F7"],
+    )
+    fig.update_layout(
+        title="Top Influencer Score Breakdown (Interactive)",
+        xaxis_title="Channel",
+        yaxis_title="Score",
+        legend_title="Signal",
+        margin=dict(l=10, r=10, t=55, b=90),
+    )
+    fig.update_xaxes(tickangle=20)
+    return fig
+
+
+def _plotly_community(counts: pd.DataFrame):
+    if not PLOTLY_AVAILABLE or counts.empty:
+        return None
+    d = counts.copy()
+    d["community_id"] = d["community_id"].astype(str)
+    fig = px.bar(
+        d,
+        x="community_id",
+        y="channels",
+        color="channels",
+        color_continuous_scale="Blues",
+        hover_data={"channels": True},
+    )
+    fig.update_layout(
+        title="Community Distribution (Interactive)",
+        xaxis_title="Community",
+        yaxis_title="Number of Channels",
+        margin=dict(l=10, r=10, t=50, b=50),
+        coloraxis_showscale=False,
+    )
+    return fig
+
+
+def _plotly_network_chart(graph: dict, scored_df: pd.DataFrame, top_nodes: int, min_edge_weight: int) -> tuple[object | None, pd.DataFrame]:
+    nodes_df = pd.DataFrame()
+    if not PLOTLY_AVAILABLE:
+        return None, nodes_df
+
+    edge_df = graph.get("edges", pd.DataFrame(columns=["source", "target", "weight"])).copy()
+    if edge_df.empty:
+        return None, nodes_df
+
+    edge_df["source"] = edge_df["source"].astype(str)
+    edge_df["target"] = edge_df["target"].astype(str)
+    if "weight" in edge_df.columns:
+        edge_df["weight"] = pd.to_numeric(edge_df["weight"], errors="coerce").fillna(0)
+        edge_df = edge_df[edge_df["weight"] >= max(1, int(min_edge_weight))]
+    if edge_df.empty:
+        return None, nodes_df
+
+    rank_ids = scored_df.sort_values("final_score", ascending=False)["_channel_id"].astype(str).head(max(30, int(top_nodes)))
+    selected = set(rank_ids.tolist())
+    edge_sub = edge_df[edge_df["source"].isin(selected) & edge_df["target"].isin(selected)].copy()
+    if edge_sub.empty:
+        edge_sub = edge_df.head(700).copy()
+        selected = set(edge_sub["source"].tolist() + edge_sub["target"].tolist())
+
+    if not selected:
+        return None, nodes_df
+
+    sel_nodes = sorted(selected)
+    rng = np.random.default_rng(42)
+    pos = {n: rng.random(2) for n in sel_nodes}
+
+    for _ in range(120):
+        for _, r in edge_sub.iterrows():
+            a = str(r["source"])
+            b = str(r["target"])
+            w = float(r.get("weight", 1.0))
+            delta = pos[b] - pos[a]
+            pos[a] += 0.0015 * w * delta
+            pos[b] -= 0.0015 * w * delta
+
+    meta = scored_df.copy()
+    meta["_channel_id"] = meta["_channel_id"].astype(str)
+    meta = meta.drop_duplicates("_channel_id").set_index("_channel_id")
+
+    nodes = []
+    for n in sel_nodes:
+        row = meta.loc[n] if n in meta.index else pd.Series(dtype=object)
+        nodes.append(
+            {
+                "_channel_id": n,
+                "x": float(pos[n][0]),
+                "y": float(pos[n][1]),
+                "channel_title": str(row.get("channel_title", n)),
+                "community_id": int(_num(row.get("community_id"), -1)),
+                "final_score": float(_num(row.get("final_score"), 0)),
+                "n_videos": int(_num(row.get("n_videos"), 0)),
+                "median_views": int(_num(row.get("median_views"), 0)),
+            }
+        )
+    nodes_df = pd.DataFrame(nodes).sort_values("final_score", ascending=False).reset_index(drop=True)
+
+    ex, ey = [], []
+    for _, r in edge_sub.iterrows():
+        a = str(r["source"])
+        b = str(r["target"])
+        ex.extend([pos[a][0], pos[b][0], None])
+        ey.extend([pos[a][1], pos[b][1], None])
+
+    edge_trace = go.Scatter(
+        x=ex,
+        y=ey,
+        mode="lines",
+        line=dict(color="rgba(148,163,184,0.40)", width=0.7),
+        hoverinfo="skip",
+        showlegend=False,
+    )
+    node_trace = go.Scatter(
+        x=nodes_df["x"],
+        y=nodes_df["y"],
+        mode="markers",
+        marker=dict(
+            size=(8 + 28 * nodes_df["final_score"].clip(lower=0)).tolist(),
+            color=nodes_df["community_id"],
+            colorscale="Viridis",
+            showscale=True,
+            colorbar=dict(title="Community"),
+            line=dict(color="#ffffff", width=0.6),
+            opacity=0.95,
+        ),
+        text=nodes_df["channel_title"],
+        customdata=np.stack(
+            [
+                nodes_df["_channel_id"],
+                nodes_df["final_score"].round(3).astype(str),
+                nodes_df["n_videos"].astype(str),
+                nodes_df["median_views"].astype(str),
+            ],
+            axis=-1,
+        ),
+        hovertemplate="<b>%{text}</b><br>Channel ID: %{customdata[0]}<br>Final Score: %{customdata[1]}<br>Videos: %{customdata[2]}<br>Median Views: %{customdata[3]}<extra></extra>",
+    )
+    fig = go.Figure(data=[edge_trace, node_trace])
+    fig.update_layout(
+        title="Influencer Network (Interactive: zoom/pan/hover)",
+        showlegend=False,
+        margin=dict(l=10, r=10, t=50, b=10),
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        dragmode="pan",
+    )
+    return fig, nodes_df
+
+
+def _parse_strategy_blocks(markdown_text: str) -> list[tuple[str, str]]:
+    text = str(markdown_text or "").strip()
+    if not text:
+        return []
+    lines = text.splitlines()
+    blocks: list[tuple[str, list[str]]] = []
+    current_title = "Strategy"
+    current_body: list[str] = []
+
+    for raw in lines:
+        line = raw.rstrip()
+        if line.startswith("## "):
+            if current_body:
+                blocks.append((current_title, current_body))
+            current_title = line.replace("## ", "").strip()
+            current_body = []
+        else:
+            current_body.append(line)
+
+    if current_body:
+        blocks.append((current_title, current_body))
+
+    clean_blocks = []
+    for title, body_lines in blocks:
+        body = "\n".join([b for b in body_lines if b.strip()]).strip()
+        if body:
+            clean_blocks.append((title, body))
+    return clean_blocks[:6]
+
+
+def _thumbnail_hooks(product_name: str, must_keywords: list[str], channel_row: pd.Series) -> list[str]:
+    product = str(product_name or "the product").strip()
+    keywords = [str(k).strip() for k in must_keywords if str(k).strip()]
+    channel = str(channel_row.get("channel_title", "creator")).strip()
+    top_kw = str(channel_row.get("channel_keyword_summary", "")).split(",")
+    top_kw = [x.strip() for x in top_kw if x.strip()][:2]
+
+    hook1 = f"{product}: 7-day real test on {channel}"
+    hook2 = f"Who should use {product}? Quick checklist"
+    if keywords:
+        hook2 = f"{product} + {keywords[0]}: what actually works"
+    hook3 = f"Top mistakes before buying {product}"
+    if top_kw:
+        hook3 = f"{product} for {', '.join(top_kw)} viewers: before/after breakdown"
+    return [hook1, hook2, hook3]
+
+
 def _scatter_text_alignment(scored_df: pd.DataFrame) -> plt.Figure:
     d = scored_df.copy()
     if "median_views" not in d.columns:
@@ -434,10 +703,57 @@ def _render_overview(result: dict, req: dict) -> None:
         unsafe_allow_html=True,
     )
     st.write("")
+
+    params = req.get("params", {})
     st.markdown("### Campaign Input Snapshot")
-    st.json(req["params"])
+    s1, s2, s3 = st.columns(3)
+    _kv_card(s1, "Brand", str(params.get("brand_name", "N/A")), "Campaign owner")
+    _kv_card(s2, "Product", str(params.get("product_name", "N/A")), str(params.get("category", "")))
+    _kv_card(s3, "Market / Budget", f"{params.get('market', 'N/A')} / ${int(_num(params.get('budget_usd'))):,}", "Target market and total budget")
+
+    s4, s5 = st.columns(2)
+    _kv_card(s4, "Campaign Goal", str(params.get("campaign_goal", "N/A")), str(params.get("usp", ""))[:160])
+    _kv_card(s5, "Target Audience", str(params.get("target_audience", "N/A"))[:180], "Audience definition used in matching")
+
+    must = params.get("must_keywords", []) or []
+    exclude = params.get("exclude_keywords", []) or []
+    if must:
+        st.markdown("**Must-have Keywords**")
+        st.markdown(
+            "".join([f"<span class='tag'>{str(k)}</span>" for k in must]),
+            unsafe_allow_html=True,
+        )
+    if exclude:
+        st.markdown("**Excluded Keywords**")
+        st.markdown(
+            "".join([f"<span class='tag' style='background:#fff4f4;border-color:#f2c1c1;color:#a13e3e'>{str(k)}</span>" for k in exclude]),
+            unsafe_allow_html=True,
+        )
+
     st.markdown("### Benchmark Panel (Anchor vs CeraVe)")
-    st.json(result.get("benchmark_summary", {}))
+    bench = result.get("benchmark_summary", {}) or {}
+    if not bench:
+        st.info("Benchmark was disabled for this run.")
+        return
+
+    anchor_top = float(topn["final_score"].mean()) if not topn.empty else 0.0
+    bench_top = float(_num(bench.get("topn_mean_score")))
+    delta = anchor_top - bench_top
+    verdict = "Anchor stronger" if delta >= 0 else "Benchmark stronger"
+    vcolor = "#1B8F5A" if delta >= 0 else "#9A3E3E"
+
+    b1, b2, b3, b4 = st.columns(4)
+    _kv_card(b1, "Benchmark Brand", str(bench.get("brand", "N/A")), str(bench.get("top_channel", "N/A")))
+    _kv_card(b2, "Anchor Mean Score", f"{anchor_top:.3f}", "Mean final score of current Top-N")
+    _kv_card(b3, "Benchmark Mean Score", f"{bench_top:.3f}", "Mean final score of CeraVe Top-N")
+    _kv_card(b4, "Score Gap", f"{delta:+.3f}", verdict)
+
+    st.markdown(
+        f"<div class='panel'><b>Benchmark Verdict:</b> "
+        f"<span style='color:{vcolor}; font-weight:800'>{verdict}</span> "
+        f"(Anchor minus Benchmark = {delta:+.3f}).</div>",
+        unsafe_allow_html=True,
+    )
 
 
 def _render_top_matches(result: dict, req: dict) -> None:
@@ -489,7 +805,11 @@ def _render_top_matches(result: dict, req: dict) -> None:
         st.warning("No channels match current filter thresholds.")
         return
 
-    st.pyplot(score_breakdown_figure(ranked))
+    score_fig = _plotly_score_breakdown(ranked)
+    if score_fig is not None:
+        st.plotly_chart(score_fig, use_container_width=True, key="topmatch_score_breakdown")
+    else:
+        st.pyplot(score_breakdown_figure(ranked))
     st.download_button(
         "Download Current Top-N as CSV",
         data=ranked.to_csv(index=False),
@@ -507,6 +827,10 @@ def _render_top_matches(result: dict, req: dict) -> None:
                 cols[0].image(image_url, use_container_width=True)
 
             cols[1].markdown(f"### #{rank_idx} {row.get('channel_title', 'Unknown Channel')}")
+            btn1, btn2, btn3 = cols[1].columns(3)
+            _link_button(btn1, "Open Channel", str(row.get("channel_url", "")))
+            _link_button(btn2, "Representative Video", str(row.get("video_url", "")))
+            _link_button(btn3, "Best Video", str(row.get("best_video_url", "")))
             cols[1].markdown(
                 f"<span class='tag' style='border-color:{fit_color}; color:{fit_color}'>{fit_label}</span>"
                 f"<span class='tag' style='border-color:{ev_color}; color:{ev_color}'>{ev_label}</span>",
@@ -573,17 +897,6 @@ def _render_top_matches(result: dict, req: dict) -> None:
                 for f in flags:
                     cols[1].warning(f)
 
-            links = []
-            if row.get("channel_url"):
-                links.append(f"[Open Channel]({row['channel_url']})")
-            if row.get("video_url"):
-                links.append(f"[Representative Video]({row['video_url']})")
-            if row.get("best_video_url"):
-                links.append(f"[Best Video]({row['best_video_url']})")
-            if links:
-                unique_links = list(dict.fromkeys(links))
-                cols[1].markdown(" | ".join(unique_links))
-
     st.markdown("### Detailed Channel Table")
     detail_cols = [
         "channel_title",
@@ -642,13 +955,37 @@ def _render_network_studio(result: dict) -> None:
     top_comms = n3.slider("Communities to Show", min_value=5, max_value=30, value=12, step=1)
     include_micro = n4.checkbox("Include micro/isolated", value=False)
 
-    st.pyplot(network_figure(graph, scored, top_nodes=top_nodes, min_edge_weight=min_edge_weight))
-    st.pyplot(community_figure(scored, top_k=top_comms, include_micro=include_micro))
+    net_fig, net_nodes = _plotly_network_chart(graph, scored, top_nodes=top_nodes, min_edge_weight=min_edge_weight)
+    if net_fig is not None:
+        st.caption("Interactive network: pan/zoom/hover enabled. Use node picker below for detailed channel stats.")
+        _safe_plotly_chart(net_fig, key="network_studio_plotly")
+    else:
+        st.pyplot(network_figure(graph, scored, top_nodes=top_nodes, min_edge_weight=min_edge_weight))
+
+    if not net_nodes.empty:
+        node_options = net_nodes["_channel_id"].tolist()
+        selected_node = st.selectbox(
+            "Inspect Node Details",
+            options=node_options,
+            format_func=lambda cid: f"{net_nodes.loc[net_nodes['_channel_id'] == cid, 'channel_title'].iloc[0]} ({cid})",
+        )
+        node_row = net_nodes[net_nodes["_channel_id"] == selected_node].iloc[0]
+        z1, z2, z3, z4 = st.columns(4)
+        z1.metric("Selected Channel", node_row["channel_title"])
+        z2.metric("Community", int(_num(node_row.get("community_id"), -1)))
+        z3.metric("Final Score", f"{_num(node_row.get('final_score')):.3f}")
+        z4.metric("Median Views", f"{int(_num(node_row.get('median_views'))):,}")
 
     comm_df = scored.copy()
     if not include_micro:
         comm_df = comm_df[comm_df["community_id"] >= 0]
     counts = comm_df["community_id"].value_counts().rename_axis("community_id").reset_index(name="channels")
+
+    comm_fig = _plotly_community(counts)
+    if comm_fig is not None:
+        st.plotly_chart(comm_fig, use_container_width=True, key="community_plotly")
+    else:
+        st.pyplot(community_figure(scored, top_k=top_comms, include_micro=include_micro))
 
     c1, c2 = st.columns([2, 1])
     c1.markdown("### Community Diagnostics")
@@ -658,9 +995,23 @@ def _render_network_studio(result: dict) -> None:
     c1.dataframe(counts.head(40), use_container_width=True)
 
     c2.markdown("### Graph Meta")
-    c2.json(graph.get("meta", {}))
+    meta = graph.get("meta", {})
+    _kv_card(c2, "Nodes", f"{int(_num(meta.get('n_nodes'))):,}", "Unique channels in graph")
+    _kv_card(c2, "Edges", f"{int(_num(meta.get('n_edges'))):,}", "Connections after tag filtering")
+    _kv_card(c2, "Dropped Tags", f"{int(_num(meta.get('dropped_tags_too_common'))):,}", "Over-common tags removed")
+
     st.markdown("### Bias Report")
-    st.json(result["bias_report"])
+    bias = result.get("bias_report", {}) or {}
+    b1, b2, b3 = st.columns(3)
+    _kv_card(b1, "Degree Top Overlap", f"{int(_num(bias.get('degree_top_overlap'))):,}/{int(_num(bias.get('top_n'))):,}", "Lower overlap implies reduced popularity bias")
+    _kv_card(b2, "Unique Communities in Top-N", f"{int(_num(bias.get('n_unique_communities_topn'))):,}", "Diversity signal")
+    _kv_card(b3, "Unique Channels in Top-N", f"{int(_num(bias.get('n_unique_final'))):,}", "De-duplicated shortlist size")
+    narrative = str(bias.get("narrative", "")).strip()
+    if narrative:
+        st.markdown(f"<div class='panel'>{narrative}</div>", unsafe_allow_html=True)
+    degree_top = pd.DataFrame(bias.get("degree_top_channels", []))
+    if not degree_top.empty:
+        st.dataframe(degree_top.head(15), use_container_width=True)
 
 
 def _render_text_intelligence(result: dict, req: dict) -> None:
@@ -678,17 +1029,63 @@ def _render_text_intelligence(result: dict, req: dict) -> None:
     min_df_terms = t3.slider("Min Document Frequency", min_value=1, max_value=12, value=4, step=1)
 
     subset = scored.head(analysis_top_n).copy()
-    st.pyplot(_scatter_text_alignment(subset))
+    if PLOTLY_AVAILABLE:
+        p = subset.copy()
+        median_views = p["median_views"].fillna(0) if "median_views" in p.columns else pd.Series(np.zeros(len(p)), index=p.index)
+        p["marker_size"] = 10 + 36 * (np.log1p(median_views) / max(np.log1p(median_views).max(), 1e-6))
+        fig = px.scatter(
+            p,
+            x="tfidf_similarity",
+            y="semantic_score",
+            color=p.get("evidence_score", pd.Series(np.zeros(len(p)))),
+            size="marker_size",
+            hover_name="channel_title",
+            hover_data={
+                "final_score": ":.3f",
+                "median_views": True,
+                "n_videos": True,
+                "marker_size": False,
+            },
+            color_continuous_scale="Viridis",
+        )
+        fig.update_layout(
+            title="Text Match Map (Interactive)",
+            xaxis_title="TF-IDF Similarity",
+            yaxis_title="Semantic Alignment",
+            margin=dict(l=10, r=10, t=50, b=10),
+        )
+        st.plotly_chart(fig, use_container_width=True, key="text_scatter_plotly")
+    else:
+        st.pyplot(_scatter_text_alignment(subset))
 
     terms = _top_terms(subset, top_n=top_term_n, min_df=min_df_terms)
     if not terms.empty:
-        fig, ax = plt.subplots(figsize=(9.4, 5.6))
-        show = terms.head(20).iloc[::-1]
-        ax.barh(show["term"], show["count"], color="#4BA3C7")
-        ax.set_xlabel("Frequency")
-        ax.set_title("Top Frequent Terms in Candidate Channel Text")
-        fig.tight_layout()
-        st.pyplot(fig)
+        if PLOTLY_AVAILABLE:
+            show = terms.head(25).copy().sort_values("count", ascending=True)
+            fig_terms = px.bar(
+                show,
+                x="count",
+                y="term",
+                orientation="h",
+                color="count",
+                color_continuous_scale="Blues",
+            )
+            fig_terms.update_layout(
+                title="Top Frequent Terms in Candidate Channel Text (Interactive)",
+                xaxis_title="Frequency",
+                yaxis_title="Term",
+                margin=dict(l=10, r=10, t=50, b=10),
+                coloraxis_showscale=False,
+            )
+            st.plotly_chart(fig_terms, use_container_width=True, key="text_terms_plotly")
+        else:
+            fig, ax = plt.subplots(figsize=(9.4, 5.6))
+            show = terms.head(20).iloc[::-1]
+            ax.barh(show["term"], show["count"], color="#4BA3C7")
+            ax.set_xlabel("Frequency")
+            ax.set_title("Top Frequent Terms in Candidate Channel Text")
+            fig.tight_layout()
+            st.pyplot(fig)
 
     st.markdown("### Keyword Coverage Matrix")
     kw_text = st.text_input(
@@ -700,14 +1097,34 @@ def _render_text_intelligence(result: dict, req: dict) -> None:
     if not cov.empty:
         st.dataframe(cov, use_container_width=True)
         coverage_rate = cov.mean(axis=0).sort_values(ascending=False)
-        fig2, ax2 = plt.subplots(figsize=(8.8, 4.6))
-        ax2.bar(coverage_rate.index.tolist(), coverage_rate.values.tolist(), color="#6BCB77")
-        ax2.set_ylim(0, 1)
-        ax2.set_ylabel("Coverage Rate")
-        ax2.set_title("Keyword Coverage Across Top Candidate Channels")
-        ax2.tick_params(axis="x", rotation=25)
-        fig2.tight_layout()
-        st.pyplot(fig2)
+        if PLOTLY_AVAILABLE:
+            cov_df = pd.DataFrame({"keyword": coverage_rate.index.tolist(), "coverage_rate": coverage_rate.values.tolist()})
+            fig_cov = px.bar(
+                cov_df,
+                x="keyword",
+                y="coverage_rate",
+                color="coverage_rate",
+                color_continuous_scale="Teal",
+                hover_data={"coverage_rate": ":.2%"},
+            )
+            fig_cov.update_layout(
+                title="Keyword Coverage Across Top Candidate Channels (Interactive)",
+                xaxis_title="Keyword",
+                yaxis_title="Coverage Rate",
+                yaxis=dict(range=[0, 1]),
+                margin=dict(l=10, r=10, t=50, b=40),
+                coloraxis_showscale=False,
+            )
+            st.plotly_chart(fig_cov, use_container_width=True, key="keyword_coverage_plotly")
+        else:
+            fig2, ax2 = plt.subplots(figsize=(8.8, 4.6))
+            ax2.bar(coverage_rate.index.tolist(), coverage_rate.values.tolist(), color="#6BCB77")
+            ax2.set_ylim(0, 1)
+            ax2.set_ylabel("Coverage Rate")
+            ax2.set_title("Keyword Coverage Across Top Candidate Channels")
+            ax2.tick_params(axis="x", rotation=25)
+            fig2.tight_layout()
+            st.pyplot(fig2)
     else:
         st.caption("No keyword matrix available for current settings.")
 
@@ -766,7 +1183,26 @@ def _render_ml_studio(result: dict, req: dict) -> None:
         st.info("ML benchmark was not run in this session. Re-run with ML enabled to populate this tab.")
         return
 
-    st.pyplot(model_cv_figure(cv_df))
+    if PLOTLY_AVAILABLE:
+        p = cv_df[cv_df["status"].isin(["ok", "reference"])].copy()
+        p = p.sort_values("rmse_mean", ascending=True)
+        fig = px.bar(
+            p,
+            x="model",
+            y="rmse_mean",
+            color="status",
+            hover_data={"rmse_mean": ":.5f", "mae_mean": ":.5f", "r2_mean": ":.5f"},
+            color_discrete_map={"ok": "#2E6FDC", "reference": "#94A3B8"},
+        )
+        fig.update_layout(
+            title="5-Fold CV RMSE by Model (Interactive)",
+            xaxis_title="Model",
+            yaxis_title="RMSE",
+            margin=dict(l=10, r=10, t=50, b=10),
+        )
+        st.plotly_chart(fig, use_container_width=True, key="ml_cv_plotly")
+    else:
+        st.pyplot(model_cv_figure(cv_df))
     st.dataframe(cv_df, use_container_width=True)
 
     model_choice = st.selectbox("Inspect Model", cv_df["model"].tolist(), index=0)
@@ -821,7 +1257,31 @@ def _render_roi_lab(result: dict, req: dict) -> None:
     c2.metric("Clicks", f"{roi.get('clicks', 0):,}")
     c3.metric("Conversions", f"{roi.get('conversions', 0):,}")
     c4.metric("Expected ROAS", f"{roi.get('roas', 0):.2f}x")
-    st.pyplot(roi_funnel_figure(roi))
+    if PLOTLY_AVAILABLE:
+        funnel_df = pd.DataFrame(
+            {
+                "stage": ["Impressions", "Clicks", "Conversions", "Revenue"],
+                "value": [roi.get("impressions", 0), roi.get("clicks", 0), roi.get("conversions", 0), roi.get("revenue", 0)],
+            }
+        )
+        fig_funnel = px.bar(
+            funnel_df,
+            x="value",
+            y="stage",
+            orientation="h",
+            color="stage",
+            color_discrete_sequence=["#93C5FD", "#60A5FA", "#38BDF8", "#0EA5A4"],
+        )
+        fig_funnel.update_layout(
+            title="ROI Funnel (Interactive)",
+            xaxis_title="Value",
+            yaxis_title="",
+            showlegend=False,
+            margin=dict(l=10, r=10, t=50, b=10),
+        )
+        st.plotly_chart(fig_funnel, use_container_width=True, key="roi_funnel_plotly")
+    else:
+        st.pyplot(roi_funnel_figure(roi))
     st.caption(f"ROAS range: {roi.get('roas_low', 0):.2f}x to {roi.get('roas_high', 0):.2f}x (scenario estimate).")
 
     st.markdown("### Budget Sensitivity")
@@ -835,18 +1295,32 @@ def _render_roi_lab(result: dict, req: dict) -> None:
         roas_grid.append(sim.roas)
         conv_grid.append(sim.conversions)
 
-    fig, ax1 = plt.subplots(figsize=(9.2, 4.8))
-    ax1.plot(budget_grid, roas_grid, marker="o", color="#0E7490", label="ROAS")
-    ax1.set_xlabel("Budget (USD)")
-    ax1.set_ylabel("ROAS", color="#0E7490")
-    ax1.tick_params(axis="y", labelcolor="#0E7490")
-    ax2 = ax1.twinx()
-    ax2.plot(budget_grid, conv_grid, marker="s", color="#16A34A", label="Conversions")
-    ax2.set_ylabel("Conversions", color="#16A34A")
-    ax2.tick_params(axis="y", labelcolor="#16A34A")
-    ax1.set_title("Budget Sensitivity: ROAS and Conversions")
-    fig.tight_layout()
-    st.pyplot(fig)
+    if PLOTLY_AVAILABLE:
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=budget_grid, y=roas_grid, mode="lines+markers", name="ROAS", yaxis="y1", line=dict(color="#0E7490")))
+        fig.add_trace(go.Scatter(x=budget_grid, y=conv_grid, mode="lines+markers", name="Conversions", yaxis="y2", line=dict(color="#16A34A")))
+        fig.update_layout(
+            title="Budget Sensitivity: ROAS and Conversions (Interactive)",
+            xaxis=dict(title="Budget (USD)"),
+            yaxis=dict(title="ROAS", side="left"),
+            yaxis2=dict(title="Conversions", overlaying="y", side="right"),
+            legend=dict(orientation="h", y=1.06, x=0),
+            margin=dict(l=10, r=10, t=55, b=10),
+        )
+        st.plotly_chart(fig, use_container_width=True, key="roi_sensitivity_plotly")
+    else:
+        fig, ax1 = plt.subplots(figsize=(9.2, 4.8))
+        ax1.plot(budget_grid, roas_grid, marker="o", color="#0E7490", label="ROAS")
+        ax1.set_xlabel("Budget (USD)")
+        ax1.set_ylabel("ROAS", color="#0E7490")
+        ax1.tick_params(axis="y", labelcolor="#0E7490")
+        ax2 = ax1.twinx()
+        ax2.plot(budget_grid, conv_grid, marker="s", color="#16A34A", label="Conversions")
+        ax2.set_ylabel("Conversions", color="#16A34A")
+        ax2.tick_params(axis="y", labelcolor="#16A34A")
+        ax1.set_title("Budget Sensitivity: ROAS and Conversions")
+        fig.tight_layout()
+        st.pyplot(fig)
 
 
 def _render_content_strategy(result: dict, req: dict) -> None:
@@ -859,22 +1333,85 @@ def _render_content_strategy(result: dict, req: dict) -> None:
     max_cards = max(min_cards, len(topn))
     default_cards = min(max(min_cards, req["top_reco_n"]), max_cards)
     count = st.slider("How many strategy cards", min_value=min_cards, max_value=max_cards, value=default_cards, step=1)
-    for _, row in topn.head(count).iterrows():
+    product_name = str(req.get("params", {}).get("product_name", "Product"))
+    must_keywords = req.get("params", {}).get("must_keywords", []) or []
+
+    for idx, (_, row) in enumerate(topn.head(count).iterrows(), start=1):
         cid = str(row["_channel_id"])
-        st.markdown(f"## {row.get('channel_title', 'Creator')}")
-        st.markdown(strategies.get(cid, "No strategy generated."))
-        st.markdown("---")
+        strategy_text = str(strategies.get(cid, "No strategy generated."))
+        blocks = _parse_strategy_blocks(strategy_text)
+        hooks = _thumbnail_hooks(product_name, must_keywords, row)
+
+        with st.container(border=True):
+            left, right = st.columns([1, 2.5])
+            image_url = str(row.get("image_url", "")).strip()
+            if image_url:
+                left.image(image_url, use_container_width=True)
+            left.markdown(f"### #{idx} {row.get('channel_title', 'Creator')}")
+            left.metric("Match Score", f"{_num(row.get('final_score')):.3f}")
+            left.metric("Median Views", f"{int(_num(row.get('median_views'))):,}")
+            _link_button(left, "Open Channel", str(row.get("channel_url", "")))
+            _link_button(left, "Representative Video", str(row.get("video_url", "")))
+
+            right.markdown("#### Campaign Structure")
+            if blocks:
+                tab_labels = [b[0][:22] for b in blocks[:3]]
+                tabs = right.tabs(tab_labels)
+                for i, (title, body) in enumerate(blocks[:3]):
+                    with tabs[i]:
+                        st.markdown(f"**{title}**")
+                        st.markdown(body)
+            else:
+                right.markdown(strategy_text)
+
+            right.markdown("#### Creative Thumbnail Hooks")
+            h1, h2, h3 = right.columns(3)
+            _kv_card(h1, "Hook 1", hooks[0], "Topline headline")
+            _kv_card(h2, "Hook 2", hooks[1], "Problem-solution angle")
+            _kv_card(h3, "Hook 3", hooks[2], "High-intent CTA angle")
 
 
 def _render_memo(result: dict) -> None:
     memo = result["executive_memo_md"]
-    st.markdown(memo)
-    st.download_button(
+    st.markdown("### Executive Memo Dashboard")
+    lines = str(memo or "").splitlines()
+    sections: list[tuple[str, str]] = []
+    cur_title = "Overview"
+    cur_lines: list[str] = []
+    for ln in lines:
+        if ln.startswith("## "):
+            if cur_lines:
+                sections.append((cur_title, "\n".join(cur_lines).strip()))
+            cur_title = ln.replace("## ", "").strip()
+            cur_lines = []
+        else:
+            cur_lines.append(ln)
+    if cur_lines:
+        sections.append((cur_title, "\n".join(cur_lines).strip()))
+
+    d1, d2 = st.columns([1, 1])
+    d1.download_button(
         "Download Memo (Markdown)",
         data=memo,
         file_name="brand_partnership_memo.md",
         mime="text/markdown",
     )
+    d2.download_button(
+        "Download Memo (Text)",
+        data=re.sub(r"[#*`]", "", memo),
+        file_name="brand_partnership_memo.txt",
+        mime="text/plain",
+    )
+
+    if sections:
+        tab_labels = [t[:22] for t, _ in sections[:8]]
+        tabs = st.tabs(tab_labels)
+        for i, (title, body) in enumerate(sections[:8]):
+            with tabs[i]:
+                st.markdown(f"#### {title}")
+                st.markdown(body)
+    else:
+        st.markdown(memo)
 
 
 def _render_glossary() -> None:
@@ -893,6 +1430,39 @@ def _render_glossary() -> None:
     st.write("Client-facing vocabulary for presentations:")
     for term, desc in glossary:
         st.markdown(f"**{term}**: {desc}")
+
+
+def _render_export_panel(result: dict) -> None:
+    paths = result.get("artifact_paths", {}) or {}
+    st.markdown("### Export Center")
+    if not paths:
+        st.info("No artifact paths were recorded for this run.")
+        return
+
+    items = [
+        ("Top-N Recommendations CSV", paths.get("topn_csv") or paths.get("top_csv") or ""),
+        ("All Scored Channels CSV", paths.get("scored_csv") or ""),
+        ("Executive Memo", paths.get("memo_md") or ""),
+    ]
+
+    cols = st.columns(len(items))
+    for i, (label, p) in enumerate(items):
+        path = Path(str(p)) if p else None
+        exists = bool(path and path.exists())
+        subtitle = str(path.name) if exists else "Not available"
+        _kv_card(cols[i], label, "Ready" if exists else "Missing", subtitle)
+        if exists:
+            mime = "text/csv" if path.suffix.lower() == ".csv" else "text/markdown"
+            cols[i].download_button(
+                f"Download {label}",
+                data=path.read_bytes(),
+                file_name=path.name,
+                mime=mime,
+                use_container_width=True,
+            )
+
+    with st.expander("Show Full Artifact Paths"):
+        st.dataframe(pd.DataFrame({"artifact": [x[0] for x in items], "path": [x[1] for x in items]}), use_container_width=True)
 
 
 def _render_dashboard() -> None:
@@ -955,8 +1525,7 @@ def _render_dashboard() -> None:
     with tabs[8]:
         _render_glossary()
 
-    st.markdown("### Exported Files")
-    st.json(result.get("artifact_paths", {}))
+    _render_export_panel(result)
 
 
 def main() -> None:
