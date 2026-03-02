@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI-MCN Final Presentation (EN)</title>
+  <style>
+    :root {
+      --bg:#0b1220;
+      --card:#111b2f;
+      --ink:#e7eefb;
+      --muted:#9eb1d4;
+      --accent:#38bdf8;
+      --accent2:#22d3ee;
+      --ok:#34d399;
+      --warn:#f59e0b;
+      --danger:#f87171;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+      background: radial-gradient(1200px 700px at 10% -10%, #1e3a8a44, transparent), var(--bg);
+      color: var(--ink);
+    }
+    .deck {
+      width: min(1200px, 95vw);
+      height: min(740px, 92vh);
+      margin: 3vh auto;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid #27406a;
+      border-radius: 18px;
+      background: linear-gradient(180deg, #0e1628, #0b1220);
+      box-shadow: 0 20px 60px #00000066;
+    }
+    .slide {
+      position: absolute;
+      inset: 0;
+      padding: 38px 48px 58px;
+      display: none;
+      overflow: auto;
+    }
+    .slide.active { display: block; }
+    h1,h2,h3 { margin: 0 0 14px; line-height: 1.15; }
+    h1 { font-size: 2.15rem; }
+    h2 { font-size: 1.8rem; color: #d8e8ff; }
+    h3 { font-size: 1.3rem; color: #d0def7; }
+    p,li { font-size: 1.07rem; line-height: 1.42; color: var(--ink); }
+    .muted { color: var(--muted); }
+    ul { margin-top: 10px; }
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 18px;
+      align-items: start;
+    }
+    .card {
+      border: 1px solid #27395f;
+      border-radius: 12px;
+      padding: 14px 16px;
+      background: #121f37;
+    }
+    .pill {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 5px 10px;
+      margin-right: 8px;
+      margin-bottom: 8px;
+      font-size: .82rem;
+      font-weight: 700;
+      background: #0f2d42;
+      border: 1px solid #235070;
+      color: #7dd3fc;
+    }
+    .kpi {
+      display: grid;
+      grid-template-columns: repeat(4,1fr);
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .kpi .box {
+      border: 1px solid #244668;
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #10233f;
+    }
+    .kpi .v {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #7dd3fc;
+    }
+    .kpi .l {
+      font-size: .85rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    img {
+      max-width: 100%;
+      border-radius: 10px;
+      border: 1px solid #2a3e64;
+      background: #fff;
+    }
+    .footer {
+      position: absolute;
+      bottom: 10px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--muted);
+      font-size: .85rem;
+    }
+    .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    button {
+      border: 1px solid #315582;
+      background: #112847;
+      color: #d8e8ff;
+      border-radius: 8px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover { background: #16345d; }
+    .progress {
+      flex: 1;
+      height: 6px;
+      background: #1a2b49;
+      border-radius: 999px;
+      margin: 0 10px;
+      overflow: hidden;
+    }
+    .bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: .95rem;
+    }
+    th, td {
+      border: 1px solid #2a4166;
+      padding: 8px 10px;
+      text-align: left;
+    }
+    th { background: #132849; }
+  </style>
+</head>
+<body>
+  <div class="deck" id="deck">
+    <section class="slide active">
+      <h1>AI-MCN: AI-Augmented Influencer Matching for Beauty Campaigns</h1>
+      <p class="muted">MSIS 521 Course Project | Team Presentation (15 minutes)</p>
+      <div class="card">
+        <p><b>Case:</b> Beauty of Joseon (BOJ), U.S. sunscreen campaign prototype</p>
+        <p><b>What we built:</b> End-to-end Streamlit app + Python AI pipeline for influencer recommendation, evaluation, and decision support.</p>
+      </div>
+      <div style="margin-top:14px;">
+        <span class="pill">SNA + Network Centrality</span>
+        <span class="pill">TF-IDF + Semantic Matching</span>
+        <span class="pill">Linear/LASSO/Ridge/CART/RF/LightGBM</span>
+        <span class="pill">5-Fold GroupCV + SHAP</span>
+        <span class="pill">ROI Simulator + Memo Export</span>
+      </div>
+    </section>
+
+    <section class="slide">
+      <h2>Problem and Scope</h2>
+      <div class="grid2">
+        <div class="card">
+          <h3>Business Problem</h3>
+          <ul>
+            <li>Influencer discovery is often manual, slow, and popularity-biased.</li>
+            <li>Teams need transparent, evidence-based creator selection.</li>
+            <li>Campaign decisions should connect to measurable outcomes.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Scope Discipline</h3>
+          <ul>
+            <li>In-scope: full matching prototype + demo + evaluation.</li>
+            <li>Out-of-scope: production MLOps and full live social ingestion.</li>
+            <li>Designed to be credible for a quarter-long class project.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide">
+      <h2>Assignment Deliverables Check</h2>
+      <table>
+        <tr><th>Assignment Requirement</th><th>Our Implementation</th></tr>
+        <tr><td>Pick a problem and client</td><td>BOJ influencer matching (realistic brand scenario)</td></tr>
+        <tr><td>Collect or obtain data</td><td>Team-collected YouTube dataset (videos/channels/comments)</td></tr>
+        <tr><td>Build AI prototype in Python</td><td>Streamlit + modular Python pipeline</td></tr>
+        <tr><td>Present process + business story + demo</td><td>This deck + live app walkthrough</td></tr>
+      </table>
+      <p class="muted">Submission format aligned: code + presentation deck (no separate long written report required).</p>
+    </section>
+
+    <section class="slide">
+      <h2>Data Overview (BOJ Run)</h2>
+      <div class="kpi">
+        <div class="box"><div class="v">42,750</div><div class="l">Videos analyzed</div></div>
+        <div class="box"><div class="v">1,089</div><div class="l">Channels scored</div></div>
+        <div class="box"><div class="v">Top-10</div><div class="l">Default recommendations</div></div>
+        <div class="box"><div class="v">6</div><div class="l">Non-micro communities</div></div>
+      </div>
+      <div class="card" style="margin-top:14px;">
+        <p><b>Input files:</b> <code>videos_text_ready_combined.csv</code>, <code>comments_raw_combined.csv</code>, <code>master_prd_slim_combined.csv</code></p>
+        <p><b>Campaign input used:</b> BOJ, SPF + Glow Serum, U.S. market, sensitive-skin audience, $50k budget.</p>
+      </div>
+    </section>
+
+    <section class="slide">
+      <h2>Method Pipeline</h2>
+      <div class="card">
+        <ol>
+          <li>Data cleaning + beauty/noise filtering</li>
+          <li>Channel aggregation and text profile generation</li>
+          <li>Graph construction + SNA scoring + community detection</li>
+          <li>TF-IDF relevance + semantic/tone enrichment for top candidates</li>
+          <li>ML benchmark (6 models, GroupKFold 5-fold)</li>
+          <li>Evidence penalty + diversity-aware ranking</li>
+          <li>ROI simulation + strategy generation + executive memo export</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="slide">
+      <h2>ML Evaluation Results</h2>
+      <div class="grid2">
+        <div>
+          <img src="assets/model_benchmark_rmse.png" alt="Model benchmark RMSE" />
+        </div>
+        <div class="card">
+          <h3>Best Model: LightGBM</h3>
+          <ul>
+            <li>RMSE: <b>0.00996</b></li>
+            <li>Baseline RMSE: <b>0.03800</b></li>
+            <li>Improvement vs baseline: <b>73.8%</b></li>
+            <li>Group-based CV prevents channel leakage across folds.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide">
+      <h2>Explainability (SHAP)</h2>
+      <div class="grid2">
+        <img src="assets/shap_summary_LightGBM.png" alt="SHAP summary" />
+        <div class="card">
+          <h3>Why this matters</h3>
+          <ul>
+            <li>Model behavior is auditable and easier to explain in stakeholder meetings.</li>
+            <li>Supports confidence in ranking decisions beyond black-box outputs.</li>
+            <li>Useful for diagnosing overfitting or unstable features.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide">
+      <h2>Top-10 BOJ Recommendations</h2>
+      <img src="assets/top10_final_scores.png" alt="Top10 final scores" />
+      <p class="muted">Top 3: AliceintheRabbitHole, Dr. Sam Ellis, NikkieTutorials.</p>
+    </section>
+
+    <section class="slide">
+      <h2>Guardrails Against Bad Recommendations</h2>
+      <div class="grid2">
+        <img src="assets/evidence_vs_finalscore_top10.png" alt="Evidence vs final score" />
+        <div class="card">
+          <h3>What we enforce</h3>
+          <ul>
+            <li>Low-evidence channels are down-weighted even if keyword match is high.</li>
+            <li>Diversity selection limits same-cluster over-concentration.</li>
+            <li>Bias report compares degree-only vs hybrid ranking.</li>
+          </ul>
+          <p><b>Bias metric:</b> overlap between degree-only top-10 and hybrid top-10 = <b>2/10</b>.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide">
+      <h2>Network Diversity Diagnostics</h2>
+      <div class="grid2">
+        <img src="assets/community_distribution_clean.png" alt="Community distribution" />
+        <div class="card">
+          <ul>
+            <li>Non-micro communities discovered: <b>6</b></li>
+            <li>Largest non-micro community share: <b>43.8%</b></li>
+            <li>Micro/isolated channels grouped separately to reduce chart noise.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide">
+      <h2>ROI Scenario (Business Lens)</h2>
+      <div class="grid2">
+        <img src="assets/roi_funnel_base.png" alt="ROI funnel" />
+        <div class="card">
+          <ul>
+            <li>Budget: <b>$50,000</b></li>
+            <li>Impressions: <b>2,777,777</b></li>
+            <li>Clicks: <b>49,999</b></li>
+            <li>Conversions: <b>1,499</b></li>
+            <li>Revenue: <b>$56,962</b></li>
+            <li>Expected ROAS: <b>1.14x</b> (0.80x to 1.48x)</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide">
+      <h2>Live Demo Flow</h2>
+      <div class="card">
+        <ol>
+          <li>Enter campaign brief (brand/product/audience/keywords/budget).</li>
+          <li>Run pipeline and show analyzing screen.</li>
+          <li>Inspect Top-N recommendations and rationale cards.</li>
+          <li>Switch ranking strategies and diversity settings.</li>
+          <li>Show Text Intelligence, ML Studio, and ROI Lab interactions.</li>
+          <li>Export memo and explain decision-ready outputs.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="slide">
+      <h2>Limitations and Future Work</h2>
+      <div class="grid2">
+        <div class="card">
+          <h3>Current limits</h3>
+          <ul>
+            <li>Prototype relies on pre-collected YouTube data.</li>
+            <li>ROI is scenario-based, not causal inference.</li>
+            <li>Some cluster concentration remains in skincare-heavy niches.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Next steps</h3>
+          <ul>
+            <li>Add live web/competitor/market enrichment.</li>
+            <li>Expand to TikTok/Instagram data connectors.</li>
+            <li>Add online experiment loop for closed-loop performance learning.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide">
+      <h2>Rubric Alignment (Target: 9-10)</h2>
+      <table>
+        <tr><th>Rubric Criterion</th><th>Evidence in This Project</th></tr>
+        <tr><td>Topic choice, scope, interest</td><td>Clear marketing problem, creative hybrid AI approach, realistic scope</td></tr>
+        <tr><td>Potential impact and relevance</td><td>Directly useful for brand/agency influencer decisions and budget planning</td></tr>
+        <tr><td>Technical prototype quality</td><td>Working end-to-end app, multi-model benchmark, SHAP, sanity checks, bias diagnostics</td></tr>
+        <tr><td>Presentation storytelling quality</td><td>Context → data → method → results → demo → impact flow with visuals</td></tr>
+      </table>
+    </section>
+
+    <section class="slide">
+      <h2>15-Minute Delivery Plan</h2>
+      <div class="card">
+        <ul>
+          <li>0:00–2:00 Problem and scope</li>
+          <li>2:00–5:30 Data and methods</li>
+          <li>5:30–8:30 Evaluation and explainability</li>
+          <li>8:30–12:30 Live demo</li>
+          <li>12:30–14:00 Impact, caveats, roadmap</li>
+          <li>14:00–15:00 Q&A</li>
+        </ul>
+      </div>
+      <p class="muted">Suggested speaking split: Speaker A (context), Speaker B (technical), Speaker C (demo + impact).</p>
+    </section>
+
+    <section class="slide">
+      <h2>References</h2>
+      <ul>
+        <li>MSIS 521 assignment brief and rubric (Canvas PDFs)</li>
+        <li>YouTube Data API docs</li>
+        <li>scikit-learn docs (GroupKFold, regression, tree, ensemble)</li>
+        <li>LightGBM docs</li>
+        <li>SHAP docs</li>
+        <li>Streamlit docs</li>
+      </ul>
+      <p class="muted">Thank you. Q&A.</p>
+    </section>
+
+    <div class="footer">
+      <div id="counter">Slide 1 / 16</div>
+      <div class="controls">
+        <button id="prevBtn">Prev</button>
+        <div class="progress"><div class="bar" id="bar"></div></div>
+        <button id="nextBtn">Next</button>
+      </div>
+      <div>Keys: ← →, Space, Home, End</div>
+    </div>
+  </div>
+
+  <script>
+    const slides = [...document.querySelectorAll(".slide")];
+    const counter = document.getElementById("counter");
+    const bar = document.getElementById("bar");
+    let idx = 0;
+
+    function render() {
+      slides.forEach((s, i) => s.classList.toggle("active", i === idx));
+      counter.textContent = `Slide ${idx + 1} / ${slides.length}`;
+      bar.style.width = `${((idx + 1) / slides.length) * 100}%`;
+    }
+    function next() { idx = Math.min(slides.length - 1, idx + 1); render(); }
+    function prev() { idx = Math.max(0, idx - 1); render(); }
+    function first() { idx = 0; render(); }
+    function last() { idx = slides.length - 1; render(); }
+
+    document.getElementById("nextBtn").addEventListener("click", next);
+    document.getElementById("prevBtn").addEventListener("click", prev);
+    document.addEventListener("keydown", (e) => {
+      if (["ArrowRight", "PageDown", " "].includes(e.key)) { e.preventDefault(); next(); }
+      if (["ArrowLeft", "PageUp"].includes(e.key)) { e.preventDefault(); prev(); }
+      if (e.key === "Home") { e.preventDefault(); first(); }
+      if (e.key === "End") { e.preventDefault(); last(); }
+    });
+    render();
+  </script>
+</body>
+</html>
+

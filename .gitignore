@@ -1,0 +1,26 @@
+# macOS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.mypy_cache/
+
+# Local app / artifacts (regenerated)
+artifacts/cache/
+artifacts/models/
+artifacts/reports/
+artifacts/plots/
+
+# Large source data (keep demo snapshots only)
+data/*_combined.csv
+data/master_prd_slim.csv
+!data/*_demo.csv
+
+# Local notes
+.claude/

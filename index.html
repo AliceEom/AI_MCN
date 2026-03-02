@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI-MCN | Influencer Marketing Intelligence</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+    body { background: #f8f7ff; }
+
+    .gradient-bg { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%); }
+    .gradient-text { background: linear-gradient(135deg, #4f46e5, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .gradient-border { border: 2px solid transparent; background-clip: padding-box; }
+
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .tab-btn { transition: all 0.2s; }
+    .tab-btn.active { background: #4f46e5; color: white; box-shadow: 0 4px 12px rgba(79,70,229,0.3); }
+
+    .card { background: white; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); transition: transform 0.2s, box-shadow 0.2s; }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 4px 24px rgba(79,70,229,0.12); }
+
+    .score-bar-fill { height: 6px; border-radius: 999px; transition: width 1s ease; }
+
+    .node { cursor: pointer; }
+    .node circle { stroke-width: 2; transition: r 0.2s; }
+    .node:hover circle { stroke-width: 3; }
+    .link { stroke: #d1d5db; stroke-opacity: 0.6; }
+
+    @keyframes fadeInUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
+    .fade-in { animation: fadeInUp 0.5s ease forwards; }
+    .fade-in-delay-1 { animation: fadeInUp 0.5s ease 0.1s both; }
+    .fade-in-delay-2 { animation: fadeInUp 0.5s ease 0.2s both; }
+    .fade-in-delay-3 { animation: fadeInUp 0.5s ease 0.3s both; }
+    .fade-in-delay-4 { animation: fadeInUp 0.5s ease 0.4s both; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { animation: spin 1s linear infinite; }
+
+    @keyframes progress { from { width: 0; } to { width: var(--target-w); } }
+    .progress-anim { animation: progress 2s ease forwards; }
+
+    .rank-badge { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; }
+
+    input[type=range] { accent-color: #4f46e5; }
+
+    .tooltip-graph {
+      position: absolute;
+      background: rgba(15,15,30,0.92);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      pointer-events: none;
+      display: none;
+      z-index: 10;
+      line-height: 1.6;
+    }
+
+    .highlight-card { border: 2px solid #4f46e5; background: linear-gradient(135deg, #f5f3ff, #ede9fe); }
+
+    .step-dot { width: 10px; height: 10px; border-radius: 50%; }
+    @keyframes dotPulse { 0%,80%,100%{transform:scale(0.6);opacity:.4} 40%{transform:scale(1);opacity:1} }
+    .dot-1 { animation: dotPulse 1.2s ease infinite; }
+    .dot-2 { animation: dotPulse 1.2s ease 0.2s infinite; }
+    .dot-3 { animation: dotPulse 1.2s ease 0.4s infinite; }
+  </style>
+</head>
+
+<body class="min-h-screen">
+
+<!-- ── NAVBAR ── -->
+<nav class="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur border-b border-gray-100">
+  <div class="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <div class="w-7 h-7 gradient-bg rounded-lg flex items-center justify-center">
+        <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      </div>
+      <span class="font-bold text-gray-900">AI-MCN</span>
+      <span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium ml-1">Beta</span>
+    </div>
+    <div class="flex items-center gap-4 text-sm text-gray-500">
+      <span>Influencer Intelligence Platform</span>
+      <span class="hidden md:block text-gray-300">|</span>
+      <span class="hidden md:block">Prototype v0.1</span>
+    </div>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 1 — LANDING / BRAND INPUT
+══════════════════════════════════════════ -->
+<div id="screen-landing" class="screen active pt-14">
+  <!-- Hero -->
+  <div class="gradient-bg text-white py-20 px-6 text-center">
+    <div class="max-w-3xl mx-auto">
+      <div class="inline-flex items-center gap-2 bg-white/15 rounded-full px-4 py-1.5 text-sm font-medium mb-6">
+        <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+        Powered by Social Network Analysis + LLM
+      </div>
+      <h1 class="text-5xl font-extrabold leading-tight mb-4">Find Your Perfect<br/>Influencer Match</h1>
+      <p class="text-xl text-purple-200 max-w-xl mx-auto">Traditional MCNs take months. We do it in 5 minutes — using network centrality to find the influencers at the core of your audience's world.</p>
+    </div>
+  </div>
+
+  <!-- Stats bar -->
+  <div class="bg-white border-b border-gray-100">
+    <div class="max-w-4xl mx-auto px-6 py-4 grid grid-cols-3 gap-4 text-center">
+      <div><div class="text-2xl font-bold gradient-text">15+</div><div class="text-xs text-gray-500 mt-0.5">Influencers Analyzed</div></div>
+      <div><div class="text-2xl font-bold gradient-text">4</div><div class="text-xs text-gray-500 mt-0.5">SNA Metrics</div></div>
+      <div><div class="text-2xl font-bold gradient-text">5 min</div><div class="text-xs text-gray-500 mt-0.5">From brief to strategy</div></div>
+    </div>
+  </div>
+
+  <!-- Brand Brief Form -->
+  <div class="max-w-2xl mx-auto px-6 py-12">
+    <div class="card p-8">
+      <h2 class="text-2xl font-bold text-gray-900 mb-1">Enter Your Brand Brief</h2>
+      <p class="text-sm text-gray-500 mb-6">Tell us about your brand and we'll match you with the best influencers.</p>
+
+      <form id="brand-form" onsubmit="startAnalysis(event)" class="space-y-5">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1.5">Brand Name</label>
+            <input id="f-brand" type="text" required placeholder="e.g. NovaTech" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 transition" />
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1.5">Product Category</label>
+            <select id="f-category" required class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 transition bg-white">
+              <option value="">Select category...</option>
+              <option>Consumer Tech</option>
+              <option>Beauty &amp; Cosmetics</option>
+              <option>Fitness &amp; Health</option>
+              <option>Food &amp; Beverage</option>
+              <option>Fashion &amp; Apparel</option>
+              <option>Financial Services</option>
+              <option>Travel &amp; Tourism</option>
+              <option>Gaming &amp; Entertainment</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1.5">Target Audience</label>
+          <input id="f-audience" type="text" required placeholder="e.g. Tech enthusiasts, 18–35, US & Canada" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 transition" />
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-2">
+            Campaign Budget
+            <span id="budget-label" class="text-purple-600 font-bold ml-2">$10,000</span>
+          </label>
+          <input id="f-budget" type="range" min="1000" max="100000" step="1000" value="10000"
+            oninput="document.getElementById('budget-label').textContent='$'+Number(this.value).toLocaleString()"
+            class="w-full" />
+          <div class="flex justify-between text-xs text-gray-400 mt-1"><span>$1K</span><span>$100K</span></div>
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1.5">Brand Brief <span class="font-normal text-gray-400">(optional)</span></label>
+          <textarea id="f-brief" rows="3" placeholder="Describe your product, campaign goals, or any specific influencer preferences..." class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 transition resize-none"></textarea>
+        </div>
+
+        <button type="submit" class="w-full gradient-bg text-white font-semibold py-3.5 rounded-xl text-sm hover:opacity-90 transition shadow-lg shadow-purple-200 flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          Find My Influencers
+        </button>
+      </form>
+    </div>
+
+    <!-- Feature tags -->
+    <div class="flex flex-wrap gap-2 justify-center mt-6">
+      <span class="text-xs bg-white border border-gray-200 rounded-full px-3 py-1 text-gray-600">SNA Centrality Scoring</span>
+      <span class="text-xs bg-white border border-gray-200 rounded-full px-3 py-1 text-gray-600">Audience Overlap Analysis</span>
+      <span class="text-xs bg-white border border-gray-200 rounded-full px-3 py-1 text-gray-600">ROI Simulator</span>
+      <span class="text-xs bg-white border border-gray-200 rounded-full px-3 py-1 text-gray-600">AI Content Strategy</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 2 — ANALYZING
+══════════════════════════════════════════ -->
+<div id="screen-analyzing" class="screen pt-14">
+  <div class="max-w-xl mx-auto px-6 py-24 text-center">
+    <div class="w-16 h-16 gradient-bg rounded-2xl mx-auto mb-6 flex items-center justify-center">
+      <svg class="w-8 h-8 text-white spinner" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="40 20"/></svg>
+    </div>
+    <h2 class="text-2xl font-bold text-gray-900 mb-2">Analyzing Influencer Network</h2>
+    <p class="text-gray-500 text-sm mb-10">Running Social Network Analysis across <strong>15 YouTube channels</strong> in your niche…</p>
+
+    <div class="space-y-4 text-left">
+      <div class="flex items-center gap-3 p-3 rounded-xl bg-white border border-gray-100" id="step1">
+        <div class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center step-icon" id="icon1">
+          <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <div class="flex-1">
+          <div class="text-sm font-semibold text-gray-700">Collecting channel data via YouTube API</div>
+          <div class="w-full bg-gray-100 rounded-full h-1 mt-1.5"><div class="h-1 rounded-full bg-indigo-500 progress-anim" style="--target-w:100%; width:0" id="bar1"></div></div>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 p-3 rounded-xl bg-white border border-gray-100" id="step2">
+        <div class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center step-icon" id="icon2">
+          <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101"/></svg>
+        </div>
+        <div class="flex-1">
+          <div class="text-sm font-semibold text-gray-700">Building collaboration network graph</div>
+          <div class="w-full bg-gray-100 rounded-full h-1 mt-1.5"><div class="h-1 rounded-full bg-purple-500 progress-anim" style="--target-w:100%; width:0; animation-delay:1s" id="bar2"></div></div>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 p-3 rounded-xl bg-white border border-gray-100" id="step3">
+        <div class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center step-icon" id="icon3">
+          <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        </div>
+        <div class="flex-1">
+          <div class="text-sm font-semibold text-gray-700">Computing SNA centrality scores</div>
+          <div class="w-full bg-gray-100 rounded-full h-1 mt-1.5"><div class="h-1 rounded-full bg-fuchsia-500 progress-anim" style="--target-w:100%; width:0; animation-delay:2s" id="bar3"></div></div>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 p-3 rounded-xl bg-white border border-gray-100" id="step4">
+        <div class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center step-icon" id="icon4">
+          <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+        </div>
+        <div class="flex-1">
+          <div class="text-sm font-semibold text-gray-700">Matching to your brand profile</div>
+          <div class="w-full bg-gray-100 rounded-full h-1 mt-1.5"><div class="h-1 rounded-full bg-indigo-400 progress-anim" style="--target-w:100%; width:0; animation-delay:3s" id="bar4"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 3 — DASHBOARD
+══════════════════════════════════════════ -->
+<div id="screen-dashboard" class="screen pt-14">
+  <!-- Brand summary bar -->
+  <div class="gradient-bg text-white px-6 py-4">
+    <div class="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-3">
+      <div>
+        <div class="text-xs text-purple-200 mb-0.5">Brand Analysis for</div>
+        <div class="font-bold text-lg" id="dash-brand-name">—</div>
+      </div>
+      <div class="flex gap-6 text-center">
+        <div><div class="text-xs text-purple-200">Category</div><div class="font-semibold text-sm" id="dash-category">—</div></div>
+        <div><div class="text-xs text-purple-200">Target</div><div class="font-semibold text-sm" id="dash-audience">—</div></div>
+        <div><div class="text-xs text-purple-200">Budget</div><div class="font-semibold text-sm" id="dash-budget">—</div></div>
+      </div>
+      <button onclick="goBack()" class="text-xs bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg transition">← New Search</button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="bg-white border-b border-gray-100 sticky top-14 z-40">
+    <div class="max-w-7xl mx-auto px-6 flex gap-2 py-3">
+      <button onclick="switchTab('network')" class="tab-btn active text-sm font-medium px-4 py-2 rounded-lg" id="tab-btn-network">
+        📡 Network Graph
+      </button>
+      <button onclick="switchTab('matches')" class="tab-btn text-sm font-medium px-4 py-2 rounded-lg text-gray-600" id="tab-btn-matches">
+        🏆 Top 5 Matches
+      </button>
+      <button onclick="switchTab('roi')" class="tab-btn text-sm font-medium px-4 py-2 rounded-lg text-gray-600" id="tab-btn-roi">
+        💰 ROI Simulator
+      </button>
+      <button onclick="switchTab('strategy')" class="tab-btn text-sm font-medium px-4 py-2 rounded-lg text-gray-600" id="tab-btn-strategy">
+        ✨ Content Strategy
+      </button>
+    </div>
+  </div>
+
+  <div class="max-w-7xl mx-auto px-6 py-8">
+
+    <!-- ── TAB: NETWORK GRAPH ── -->
+    <div id="tab-network" class="tab-content active">
+      <div class="grid grid-cols-3 gap-6">
+        <div class="col-span-2 card p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="font-bold text-gray-900">Influencer Collaboration Network</h3>
+              <p class="text-xs text-gray-500 mt-0.5">Node size = Subscribers · Node color = Niche · Edge = Collaboration signal</p>
+            </div>
+            <div class="flex gap-3 text-xs text-gray-500 flex-wrap">
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block"></span>Tech</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-pink-500 inline-block"></span>Beauty</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>Fitness</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>Food</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-violet-500 inline-block"></span>Gaming</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-sky-500 inline-block"></span>Other</span>
+            </div>
+          </div>
+          <div id="sna-graph" class="relative" style="height:420px; background:#f8f7ff; border-radius:12px; overflow:hidden;"></div>
+          <div class="tooltip-graph" id="graph-tooltip"></div>
+        </div>
+
+        <div class="space-y-4">
+          <div class="card p-5">
+            <h4 class="font-semibold text-gray-800 text-sm mb-3">Network Stats</h4>
+            <div class="space-y-2">
+              <div class="flex justify-between text-sm"><span class="text-gray-500">Total Nodes</span><span class="font-semibold">15</span></div>
+              <div class="flex justify-between text-sm"><span class="text-gray-500">Collaboration Edges</span><span class="font-semibold">18</span></div>
+              <div class="flex justify-between text-sm"><span class="text-gray-500">Network Density</span><span class="font-semibold">0.17</span></div>
+              <div class="flex justify-between text-sm"><span class="text-gray-500">Avg Clustering</span><span class="font-semibold">0.43</span></div>
+            </div>
+          </div>
+
+          <div class="card p-5">
+            <h4 class="font-semibold text-gray-800 text-sm mb-3">Top by Betweenness Centrality</h4>
+            <div id="top-betweenness" class="space-y-2"></div>
+          </div>
+
+          <div class="card p-5">
+            <h4 class="font-semibold text-gray-800 text-sm mb-3">Influencer Pool</h4>
+            <div id="pool-list" class="space-y-1.5 max-h-52 overflow-y-auto pr-1"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TAB: TOP 5 MATCHES ── -->
+    <div id="tab-matches" class="tab-content">
+      <div class="mb-5">
+        <h3 class="font-bold text-gray-900 text-lg">Top 5 Influencer Recommendations</h3>
+        <p class="text-sm text-gray-500">Ranked by composite match score: SNA (25%) · Audience Overlap (30%) · Engagement Quality (25%) · Content Fit (20%)</p>
+      </div>
+      <div id="matches-container" class="space-y-4"></div>
+    </div>
+
+    <!-- ── TAB: ROI SIMULATOR ── -->
+    <div id="tab-roi" class="tab-content">
+      <div class="grid grid-cols-3 gap-6">
+        <div class="col-span-1 space-y-5">
+          <div class="card p-6">
+            <h3 class="font-bold text-gray-900 mb-1">ROI Simulator</h3>
+            <p class="text-xs text-gray-500 mb-5">Based on CTR → CVR → ROA framework using industry benchmarks.</p>
+
+            <div class="space-y-5">
+              <div>
+                <label class="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">Select Influencer</label>
+                <select id="roi-influencer" onchange="calcROI()" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white"></select>
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-gray-600 uppercase tracking-wide flex justify-between mb-1">
+                  <span>Campaign Budget</span><span class="text-purple-600" id="roi-budget-label">$10,000</span>
+                </label>
+                <input type="range" id="roi-budget" min="1000" max="100000" step="1000" value="10000" oninput="document.getElementById('roi-budget-label').textContent='$'+Number(this.value).toLocaleString();calcROI()" class="w-full" />
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-gray-600 uppercase tracking-wide flex justify-between mb-1">
+                  <span>Click-Through Rate (CTR)</span><span class="text-purple-600" id="roi-ctr-label">3.0%</span>
+                </label>
+                <input type="range" id="roi-ctr" min="0.5" max="8" step="0.5" value="3" oninput="document.getElementById('roi-ctr-label').textContent=Number(this.value).toFixed(1)+'%';calcROI()" class="w-full" />
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-gray-600 uppercase tracking-wide flex justify-between mb-1">
+                  <span>Conversion Rate (CVR)</span><span class="text-purple-600" id="roi-cvr-label">2.0%</span>
+                </label>
+                <input type="range" id="roi-cvr" min="0.5" max="6" step="0.5" value="2" oninput="document.getElementById('roi-cvr-label').textContent=Number(this.value).toFixed(1)+'%';calcROI()" class="w-full" />
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-gray-600 uppercase tracking-wide flex justify-between mb-1">
+                  <span>Avg Order Value (AOV)</span><span class="text-purple-600" id="roi-aov-label">$75</span>
+                </label>
+                <input type="range" id="roi-aov" min="10" max="500" step="5" value="75" oninput="document.getElementById('roi-aov-label').textContent='$'+this.value;calcROI()" class="w-full" />
+              </div>
+            </div>
+
+            <div class="mt-5 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
+              ⚠️ Estimates based on industry benchmarks. Actual results may vary. Confidence range: ±30%.
+            </div>
+          </div>
+        </div>
+
+        <div class="col-span-2 space-y-4">
+          <!-- KPI cards -->
+          <div class="grid grid-cols-2 gap-4">
+            <div class="card p-5 text-center">
+              <div class="text-3xl font-extrabold gradient-text" id="roi-impressions">—</div>
+              <div class="text-sm text-gray-500 mt-1">Estimated Impressions</div>
+              <div class="text-xs text-gray-400 mt-0.5">Based on influencer avg. views</div>
+            </div>
+            <div class="card p-5 text-center">
+              <div class="text-3xl font-extrabold gradient-text" id="roi-clicks">—</div>
+              <div class="text-sm text-gray-500 mt-1">Estimated Clicks</div>
+              <div class="text-xs text-gray-400 mt-0.5">Impressions × CTR</div>
+            </div>
+            <div class="card p-5 text-center">
+              <div class="text-3xl font-extrabold gradient-text" id="roi-conversions">—</div>
+              <div class="text-sm text-gray-500 mt-1">Estimated Conversions</div>
+              <div class="text-xs text-gray-400 mt-0.5">Clicks × CVR</div>
+            </div>
+            <div class="card p-5 text-center">
+              <div class="text-3xl font-extrabold gradient-text" id="roi-revenue">—</div>
+              <div class="text-sm text-gray-500 mt-1">Estimated Revenue</div>
+              <div class="text-xs text-gray-400 mt-0.5">Conversions × AOV</div>
+            </div>
+          </div>
+
+          <!-- ROI gauge -->
+          <div class="card p-6">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h4 class="font-bold text-gray-900">Estimated ROI</h4>
+                <p class="text-xs text-gray-500">(Revenue − Budget) ÷ Budget × 100</p>
+              </div>
+              <div class="text-right">
+                <div class="text-4xl font-extrabold" id="roi-pct" style="color:#4f46e5">—</div>
+                <div class="text-xs text-gray-500 mt-0.5" id="roi-range">Range: —</div>
+              </div>
+            </div>
+            <canvas id="roi-chart" height="80"></canvas>
+          </div>
+
+          <!-- Funnel -->
+          <div class="card p-6">
+            <h4 class="font-bold text-gray-900 mb-4">Campaign Funnel</h4>
+            <div id="roi-funnel" class="space-y-2"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TAB: CONTENT STRATEGY ── -->
+    <div id="tab-strategy" class="tab-content">
+      <div class="grid grid-cols-3 gap-6">
+        <div class="col-span-1 card p-6">
+          <h3 class="font-bold text-gray-900 mb-1">Select Influencer</h3>
+          <p class="text-xs text-gray-500 mb-4">Generate AI content strategy tailored to their style.</p>
+          <div id="strategy-selector" class="space-y-2"></div>
+        </div>
+        <div class="col-span-2" id="strategy-output">
+          <div class="card p-12 text-center text-gray-400">
+            <svg class="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            <p class="text-sm">Select an influencer on the left to generate their AI content strategy.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /max-w-7xl -->
+</div><!-- /screen-dashboard -->
+
+<script>
+// ══════════════════════════════════════════
+// MOCK DATA
+// ══════════════════════════════════════════
+
+const INFLUENCERS = [
+  { id:0,  name:"LinearTech",       handle:"@LinearTech",       avatar:"LT", subs:2800000, avgViews:320000, engRate:5.1, niche:"Tech",     style:"Review",         uploadFreq:3, betweenness:0.91, degree:0.87, pagerank:0.94 },
+  { id:1,  name:"GlamourGrace",     handle:"@GlamourGrace",     avatar:"GG", subs:1500000, avgViews:180000, engRate:6.8, niche:"Beauty",   style:"Tutorial",       uploadFreq:4, betweenness:0.85, degree:0.79, pagerank:0.82 },
+  { id:2,  name:"FitnessFusion",    handle:"@FitnessFusion",    avatar:"FF", subs:980000,  avgViews:95000,  engRate:7.2, niche:"Fitness",  style:"Challenge",      uploadFreq:5, betweenness:0.78, degree:0.82, pagerank:0.76 },
+  { id:3,  name:"FoodieWorld",      handle:"@FoodieWorld",      avatar:"FW", subs:1200000, avgViews:145000, engRate:8.1, niche:"Food",     style:"Recipe",         uploadFreq:3, betweenness:0.72, degree:0.76, pagerank:0.80 },
+  { id:4,  name:"TechNomad",        handle:"@TechNomad",        avatar:"TN", subs:750000,  avgViews:62000,  engRate:4.8, niche:"Tech",     style:"Tutorial",       uploadFreq:2, betweenness:0.68, degree:0.71, pagerank:0.73 },
+  { id:5,  name:"StyleWithSam",     handle:"@StyleWithSam",     avatar:"SS", subs:890000,  avgViews:110000, engRate:9.2, niche:"Fashion",  style:"Lifestyle",      uploadFreq:5, betweenness:0.65, degree:0.69, pagerank:0.71 },
+  { id:6,  name:"HealthyHabits",    handle:"@HealthyHabits",    avatar:"HH", subs:1100000, avgViews:88000,  engRate:6.3, niche:"Fitness",  style:"Lifestyle",      uploadFreq:4, betweenness:0.82, degree:0.75, pagerank:0.79 },
+  { id:7,  name:"GameMasterPro",    handle:"@GameMasterPro",    avatar:"GM", subs:3200000, avgViews:420000, engRate:5.9, niche:"Gaming",   style:"Entertainment",  uploadFreq:7, betweenness:0.88, degree:0.92, pagerank:0.90 },
+  { id:8,  name:"TravelWithAlex",   handle:"@TravelWithAlex",   avatar:"TA", subs:670000,  avgViews:55000,  engRate:5.5, niche:"Travel",   style:"Lifestyle",      uploadFreq:2, betweenness:0.59, degree:0.63, pagerank:0.65 },
+  { id:9,  name:"MoneyMindset",     handle:"@MoneyMindset",     avatar:"MM", subs:1400000, avgViews:130000, engRate:4.1, niche:"Finance",  style:"Education",      uploadFreq:3, betweenness:0.77, degree:0.80, pagerank:0.83 },
+  { id:10, name:"ScienceDaily",     handle:"@ScienceDaily",     avatar:"SD", subs:560000,  avgViews:48000,  engRate:6.9, niche:"Tech",     style:"Education",      uploadFreq:2, betweenness:0.62, degree:0.58, pagerank:0.64 },
+  { id:11, name:"BeautyInsider",    handle:"@BeautyInsider",    avatar:"BI", subs:2100000, avgViews:280000, engRate:7.4, niche:"Beauty",   style:"Review",         uploadFreq:4, betweenness:0.86, degree:0.83, pagerank:0.88 },
+  { id:12, name:"NutriCoach",       handle:"@NutriCoach",       avatar:"NC", subs:840000,  avgViews:72000,  engRate:5.7, niche:"Fitness",  style:"Education",      uploadFreq:3, betweenness:0.73, degree:0.70, pagerank:0.74 },
+  { id:13, name:"DIYCreator",       handle:"@DIYCreator",       avatar:"DC", subs:1600000, avgViews:195000, engRate:6.1, niche:"Lifestyle",style:"Tutorial",       uploadFreq:3, betweenness:0.79, degree:0.77, pagerank:0.81 },
+  { id:14, name:"GadgetReview",     handle:"@GadgetReview",     avatar:"GR", subs:920000,  avgViews:98000,  engRate:4.5, niche:"Tech",     style:"Review",         uploadFreq:4, betweenness:0.83, degree:0.85, pagerank:0.87 },
+];
+
+const EDGES = [
+  {s:0,t:4,w:0.8},{s:0,t:10,w:0.6},{s:0,t:14,w:0.9},{s:0,t:7,w:0.5},
+  {s:1,t:5,w:0.7},{s:1,t:11,w:0.85},{s:1,t:13,w:0.5},
+  {s:2,t:6,w:0.9},{s:2,t:12,w:0.75},{s:2,t:3,w:0.45},
+  {s:3,t:13,w:0.65},{s:3,t:12,w:0.7},
+  {s:4,t:14,w:0.85},{s:4,t:10,w:0.7},
+  {s:5,t:11,w:0.65},{s:5,t:13,w:0.6},
+  {s:6,t:12,w:0.8},{s:8,t:9,w:0.55},
+];
+
+const NICHE_COLORS = {
+  Tech:"#6366f1", Beauty:"#ec4899", Fitness:"#10b981",
+  Food:"#f59e0b", Fashion:"#f43f5e", Finance:"#3b82f6",
+  Travel:"#06b6d4", Gaming:"#8b5cf6", Lifestyle:"#84cc16",
+};
+
+const AUDIENCE_OVERLAP = {
+  "Consumer Tech":         { Tech:1.0,Gaming:0.7,Finance:0.5,Lifestyle:0.35,Travel:0.3,Beauty:0.1,Fitness:0.2,Food:0.15,Fashion:0.1,Education:0.6 },
+  "Beauty & Cosmetics":   { Beauty:1.0,Fashion:0.85,Lifestyle:0.75,Food:0.4,Travel:0.5,Fitness:0.45,Tech:0.15,Gaming:0.15,Finance:0.2,Education:0.3 },
+  "Fitness & Health":     { Fitness:1.0,Food:0.7,Lifestyle:0.65,Travel:0.5,Beauty:0.4,Fashion:0.3,Tech:0.25,Gaming:0.1,Finance:0.2,Education:0.55 },
+  "Food & Beverage":      { Food:1.0,Fitness:0.65,Lifestyle:0.7,Travel:0.65,Beauty:0.35,Fashion:0.4,Tech:0.1,Gaming:0.15,Finance:0.1,Education:0.3 },
+  "Fashion & Apparel":    { Fashion:1.0,Beauty:0.85,Lifestyle:0.75,Travel:0.6,Food:0.4,Fitness:0.35,Tech:0.15,Gaming:0.2,Finance:0.2,Education:0.2 },
+  "Financial Services":   { Finance:1.0,Tech:0.65,Lifestyle:0.45,Education:0.6,Gaming:0.2,Travel:0.35,Food:0.1,Beauty:0.1,Fitness:0.25,Fashion:0.1 },
+  "Travel & Tourism":     { Travel:1.0,Lifestyle:0.75,Food:0.65,Fashion:0.55,Fitness:0.45,Beauty:0.4,Finance:0.3,Tech:0.25,Gaming:0.15,Education:0.3 },
+  "Gaming & Entertainment":{ Gaming:1.0,Tech:0.75,Education:0.4,Lifestyle:0.35,Fitness:0.2,Food:0.2,Fashion:0.15,Beauty:0.1,Finance:0.15,Travel:0.2 },
+};
+
+const STYLE_COMPAT = {
+  "Consumer Tech":         { Review:1.0,Tutorial:0.9,Education:0.85,Entertainment:0.6,Lifestyle:0.5,Challenge:0.4,Recipe:0.2 },
+  "Beauty & Cosmetics":   { Tutorial:1.0,Lifestyle:0.9,Review:0.85,Challenge:0.7,Entertainment:0.6,Education:0.5,Recipe:0.3 },
+  "Fitness & Health":     { Challenge:1.0,Tutorial:0.9,Education:0.85,Lifestyle:0.8,Review:0.6,Entertainment:0.5,Recipe:0.7 },
+  "Food & Beverage":      { Recipe:1.0,Lifestyle:0.9,Tutorial:0.8,Entertainment:0.65,Review:0.7,Challenge:0.75,Education:0.5 },
+  "Fashion & Apparel":    { Lifestyle:1.0,Tutorial:0.85,Entertainment:0.75,Challenge:0.7,Review:0.65,Education:0.4,Recipe:0.2 },
+  "Financial Services":   { Education:1.0,Tutorial:0.85,Lifestyle:0.6,Review:0.7,Entertainment:0.4,Challenge:0.3,Recipe:0.1 },
+  "Travel & Tourism":     { Lifestyle:1.0,Entertainment:0.9,Tutorial:0.75,Review:0.8,Challenge:0.65,Education:0.6,Recipe:0.5 },
+  "Gaming & Entertainment":{ Entertainment:1.0,Challenge:0.9,Review:0.85,Tutorial:0.75,Lifestyle:0.5,Education:0.6,Recipe:0.2 },
+};
+
+const CPM_BY_NICHE = { Tech:12,Beauty:9,Fitness:8,Food:7,Fashion:10,Finance:14,Travel:9,Gaming:8,Lifestyle:8 };
+
+const CONTENT_STRATEGIES = {
+  "Consumer Tech": (inf) => ({
+    concepts:[
+      `"30 Days with [Product]" — ${inf.name} documents real-world performance in a long-form diary series`,
+      `Tech Breakdown: "${inf.name} Tears Down [Product]" — spec analysis, benchmarking vs. top rivals`,
+      `Audience Challenge: "Can [Product] Replace My Setup?" — subscriber poll + live reaction video`,
+    ],
+    format: inf.uploadFreq >= 4 ? "Primary: YouTube Shorts teaser (60s) + dedicated long-form (14–18 min)" : "Long-form deep-dive (16–20 min) with timestamped chapters",
+    angles:["Raw performance benchmarks","Value-for-money verdict","Lifestyle integration: does it fit a creator's desk?"],
+    timing:`Post on ${inf.uploadFreq >= 4 ? "Tuesday & Thursday" : "Wednesday"}, 11am–2pm EST — peak tech-enthusiast engagement window`,
+  }),
+  "Beauty & Cosmetics": (inf) => ({
+    concepts:[
+      `"Full-Face Look Using Only [Product]" — ${inf.name} creates a complete look, showing versatility`,
+      `Honest 30-Day Skin Diary — before/after results with no filters, builds authenticity`,
+      `"I Let My Subscribers Pick My Routine" — interactive challenge featuring [Product] as hero item`,
+    ],
+    format: inf.uploadFreq >= 4 ? "Short-form Shorts (45s transformation) + full tutorial long-form (12–15 min)" : "In-depth tutorial (15–20 min) + Instagram Story repurposing",
+    angles:["Before/after authenticity","Inclusive shades & skin types","Everyday wearable look"],
+    timing:`Post on ${inf.uploadFreq >= 4 ? "Monday, Wednesday & Friday" : "Friday"}, 7am–10am EST — beauty audience peaks on weekday mornings`,
+  }),
+  "Fitness & Health": (inf) => ({
+    concepts:[
+      `"30-Day [Product] Challenge" — ${inf.name} tracks measurable results with weekly check-ins`,
+      `"I Fueled My Entire Workout Week with [Product]" — performance diary with workout stats`,
+      `Expert Breakdown: "Is [Product] Worth It?" — ${inf.name} interviews a nutritionist/trainer`,
+    ],
+    format: inf.uploadFreq >= 4 ? "Workout-day Shorts (60s) + weekly recap long-form (10–14 min)" : "Full challenge video (15–18 min) with progress graphics",
+    angles:["Measurable performance gains","Convenience for busy athletes","Science-backed ingredient spotlight"],
+    timing:`Post on ${inf.uploadFreq >= 4 ? "Monday (challenge kick-off) & Thursday (mid-week check-in)" : "Monday"}, 6am–9am EST — fitness audience checks content pre-workout`,
+  }),
+  "Food & Beverage": (inf) => ({
+    concepts:[
+      `"5 Recipes Using Only [Product]" — ${inf.name} shows culinary versatility in a recipe roundup`,
+      `Blind Taste Test: "[Product] vs. Top Competitors" — honest, fun reaction format`,
+      `"I Replaced [Common Ingredient] with [Product] for a Week" — cooking challenge with real meals`,
+    ],
+    format: inf.uploadFreq >= 4 ? "Quick recipe Shorts (60s each recipe) + full video roundup (12–16 min)" : "Recipe showcase video (14–18 min) with prep & taste segments",
+    angles:["Flavor & texture authenticity","Easy weeknight meal integration","Nutrition angle + ingredient transparency"],
+    timing:`Post on ${inf.uploadFreq >= 4 ? "Sunday (meal prep) & Wednesday (midweek cook)" : "Sunday"}, 10am–1pm EST — food content spikes on weekend mornings`,
+  }),
+  "Fashion & Apparel": (inf) => ({
+    concepts:[
+      `"7-Day Outfit Challenge Using [Brand]" — ${inf.name} builds a week of looks, showing range`,
+      `"I Styled [Product] 5 Different Ways" — versatility showcase across occasions`,
+      `Thrift vs. [Brand]: "Is Fast Fashion Worth It?" — honest comparison with fit & quality focus`,
+    ],
+    format: inf.uploadFreq >= 4 ? "Daily outfit Shorts (30–45s) + full 7-day lookbook video (10–14 min)" : "Lookbook video (12–16 min) + try-on haul format",
+    angles:["Versatility across occasions","Sustainable angle if applicable","Body inclusivity & real-fit showcase"],
+    timing:`Post on ${inf.uploadFreq >= 4 ? "Thursday (weekend prep) & Sunday (week planning)" : "Thursday"}, 4pm–7pm EST — fashion audience peaks in early evening`,
+  }),
+  "Financial Services": (inf) => ({
+    concepts:[
+      `"I Tracked Every Dollar for 30 Days Using [Product]" — ${inf.name} documents real budgeting journey`,
+      `"[Product] Explained in 5 Minutes" — clear, jargon-free breakdown for everyday users`,
+      `"My 6-Month Results Using [Product]" — honest long-term review with actual numbers`,
+    ],
+    format: inf.uploadFreq >= 4 ? "Explainer Shorts (60s quick tips) + deep-dive long-form (14–18 min)" : "Comprehensive review/guide (16–20 min) with screen walkthroughs",
+    angles:["Transparency with real numbers","Simplicity — breaking down complexity","Safety & trust signals"],
+    timing:`Post on ${inf.uploadFreq >= 4 ? "Monday (fresh-week mindset) & Thursday" : "Monday"}, 8am–11am EST — financial content is consumed during morning commutes`,
+  }),
+  "Travel & Tourism": (inf) => ({
+    concepts:[
+      `"[Destination] Trip Entirely Planned with [Product]" — ${inf.name} documents end-to-end travel experience`,
+      `"Hidden Gems I Found Using [Product]" — discovery-focused adventure vlog`,
+      `Budget vs. Luxury: "How [Product] Changed the Way I Travel" — comparison travel narrative`,
+    ],
+    format: inf.uploadFreq >= 4 ? "Daily travel Shorts (60s moments) + full trip recap vlog (14–18 min)" : "Immersive travel vlog (16–22 min) with B-roll and storytelling arc",
+    angles:["Adventure & spontaneity","Money-saving or luxury-enhancing angle","Local culture immersion"],
+    timing:`Post on ${inf.uploadFreq >= 4 ? "Friday (travel planning starts) & Sunday" : "Friday"}, 12pm–3pm EST — travel content peaks on weekends`,
+  }),
+  "Gaming & Entertainment": (inf) => ({
+    concepts:[
+      `"I Played [Game/Product] for 24 Hours Straight" — ${inf.name} endurance challenge with live commentary`,
+      `"[Product] Made Me a Better Gamer?" — performance experiment with before/after stats`,
+      `Community Tournament: "${inf.name} vs. Subscribers Using [Product]" — interactive event format`,
+    ],
+    format: inf.uploadFreq >= 4 ? "Gaming Shorts highlight clips (60s) + full session long-form (15–20 min)" : "Full gameplay showcase (18–25 min) with integrated sponsorship segment",
+    angles:["Performance edge & competitive advantage","Fun/entertainment factor","Community & viewer participation"],
+    timing:`Post on ${inf.uploadFreq >= 5 ? "Wednesday & Saturday" : "Saturday"}, 6pm–10pm EST — gaming audience peaks on weekend evenings`,
+  }),
+};
+
+// ══════════════════════════════════════════
+// APP STATE
+// ══════════════════════════════════════════
+let brandState = {};
+let computedMatches = [];
+let roiChart = null;
+
+// ══════════════════════════════════════════
+// SCREEN TRANSITIONS
+// ══════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function goBack() {
+  showScreen('landing');
+}
+
+// ══════════════════════════════════════════
+// FORM SUBMIT → ANALYZE
+// ══════════════════════════════════════════
+function startAnalysis(e) {
+  e.preventDefault();
+  brandState = {
+    brand:    document.getElementById('f-brand').value,
+    category: document.getElementById('f-category').value,
+    audience: document.getElementById('f-audience').value,
+    budget:   parseInt(document.getElementById('f-budget').value),
+    brief:    document.getElementById('f-brief').value,
+  };
+  showScreen('analyzing');
+  runAnalysisPipeline();
+}
+
+function runAnalysisPipeline() {
+  // Simulate pipeline steps
+  const delays = [800, 1800, 2800, 3800];
+  const bars = ['bar1','bar2','bar3','bar4'];
+  bars.forEach((id, i) => {
+    setTimeout(() => {
+      const el = document.getElementById(id);
+      if (el) el.style.width = '100%';
+    }, delays[i]);
+  });
+  // After all steps, show dashboard
+  setTimeout(() => {
+    computeMatchScores();
+    buildDashboard();
+    showScreen('dashboard');
+    setTimeout(() => { buildSNAGraph(); }, 100);
+  }, 5200);
+}
+
+// ══════════════════════════════════════════
+// SCORE COMPUTATION
+// ══════════════════════════════════════════
+function computeMatchScores() {
+  const cat = brandState.category;
+  const budget = brandState.budget;
+  const overlapTable = AUDIENCE_OVERLAP[cat] || {};
+  const styleTable   = STYLE_COMPAT[cat]   || {};
+
+  computedMatches = INFLUENCERS.map(inf => {
+    const snaScore      = (inf.betweenness + inf.degree + inf.pagerank) / 3;
+    const audienceScore = overlapTable[inf.niche] || 0.1;
+    const eng = inf.engRate;
+    const engQuality    = eng < 2 ? 0.3 : eng < 4 ? 0.6 : eng < 8 ? 0.9 : eng < 12 ? 0.75 : 0.6;
+    const contentFit    = styleTable[inf.style] || 0.3;
+    const estimatedRate = inf.subs * 0.008;
+    const budgetFit     = Math.min(budget / estimatedRate, 1.0);
+
+    const total = Math.min(
+      (0.25 * snaScore + 0.30 * audienceScore + 0.25 * engQuality + 0.20 * contentFit) * (0.6 + 0.4 * budgetFit),
+      1.0
+    );
+    return { ...inf, scores: { sna: snaScore, audience: audienceScore, engagement: engQuality, content: contentFit, total } };
+  }).sort((a, b) => b.scores.total - a.scores.total);
+}
+
+// ══════════════════════════════════════════
+// DASHBOARD SETUP
+// ══════════════════════════════════════════
+function buildDashboard() {
+  // Brand bar
+  document.getElementById('dash-brand-name').textContent = brandState.brand;
+  document.getElementById('dash-category').textContent   = brandState.category;
+  document.getElementById('dash-audience').textContent   = brandState.audience;
+  document.getElementById('dash-budget').textContent     = '$' + brandState.budget.toLocaleString();
+
+  buildPoolList();
+  buildTopBetweenness();
+  buildMatchCards();
+  buildROISelectors();
+  buildStrategySelector();
+  setTimeout(() => calcROI(), 200);
+}
+
+// ══════════════════════════════════════════
+// POOL LIST (Network tab sidebar)
+// ══════════════════════════════════════════
+function buildPoolList() {
+  const container = document.getElementById('pool-list');
+  container.innerHTML = INFLUENCERS.map(inf => `
+    <div class="flex items-center gap-2 py-1">
+      <div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style="background:${NICHE_COLORS[inf.niche]||'#94a3b8'}">${inf.avatar[0]}</div>
+      <div class="min-w-0">
+        <div class="text-xs font-medium text-gray-800 truncate">${inf.name}</div>
+        <div class="text-xs text-gray-400">${(inf.subs/1000000).toFixed(1)}M subs · ${inf.niche}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function buildTopBetweenness() {
+  const sorted = [...INFLUENCERS].sort((a,b) => b.betweenness - a.betweenness).slice(0,5);
+  document.getElementById('top-betweenness').innerHTML = sorted.map((inf,i) => `
+    <div class="flex items-center gap-2">
+      <span class="text-xs text-gray-400 w-4">${i+1}</span>
+      <div class="flex-1">
+        <div class="flex justify-between text-xs mb-0.5">
+          <span class="font-medium text-gray-700">${inf.name}</span>
+          <span class="text-gray-500">${(inf.betweenness*100).toFixed(0)}%</span>
+        </div>
+        <div class="w-full bg-gray-100 rounded-full h-1.5">
+          <div class="h-1.5 rounded-full" style="width:${inf.betweenness*100}%;background:${NICHE_COLORS[inf.niche]||'#94a3b8'}"></div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ══════════════════════════════════════════
+// TOP 5 MATCH CARDS
+// ══════════════════════════════════════════
+function buildMatchCards() {
+  const top5 = computedMatches.slice(0, 5);
+  const RANK_STYLES = [
+    'bg-amber-400 text-white',
+    'bg-gray-300 text-gray-700',
+    'bg-orange-300 text-white',
+    'bg-indigo-100 text-indigo-700',
+    'bg-indigo-100 text-indigo-700',
+  ];
+  const RANK_LABELS = ['#1','#2','#3','#4','#5'];
+
+  document.getElementById('matches-container').innerHTML = top5.map((inf, i) => {
+    const s = inf.scores;
+    const totalPct = Math.round(s.total * 100);
+    const color = NICHE_COLORS[inf.niche] || '#94a3b8';
+    return `
+    <div class="card p-6 fade-in" style="animation-delay:${i*0.08}s">
+      <div class="flex items-start gap-4">
+        <!-- Rank + Avatar -->
+        <div class="text-center flex-shrink-0">
+          <div class="rank-badge ${RANK_STYLES[i]} mb-1">${RANK_LABELS[i]}</div>
+          <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-lg" style="background:${color}">${inf.avatar}</div>
+        </div>
+
+        <!-- Info -->
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-bold text-gray-900 text-base">${inf.name}</span>
+            <span class="text-xs text-gray-400">${inf.handle}</span>
+            <span class="text-xs font-medium px-2 py-0.5 rounded-full" style="background:${color}22;color:${color}">${inf.niche}</span>
+          </div>
+          <div class="flex gap-4 mt-1 text-xs text-gray-500 flex-wrap">
+            <span>${formatNum(inf.subs)} subscribers</span>
+            <span>${formatNum(inf.avgViews)} avg views</span>
+            <span>${inf.engRate}% engagement</span>
+            <span>${inf.style} content</span>
+            <span>${inf.uploadFreq}x/week</span>
+          </div>
+
+          <!-- Score bars -->
+          <div class="mt-3 grid grid-cols-2 gap-x-6 gap-y-2">
+            ${scoreBar('SNA Centrality', s.sna, '#6366f1')}
+            ${scoreBar('Audience Overlap', s.audience, '#ec4899')}
+            ${scoreBar('Engagement Quality', s.engagement, '#10b981')}
+            ${scoreBar('Content Fit', s.content, '#f59e0b')}
+          </div>
+        </div>
+
+        <!-- Total score -->
+        <div class="text-center flex-shrink-0">
+          <div class="text-3xl font-extrabold" style="color:${color}">${totalPct}<span class="text-lg">%</span></div>
+          <div class="text-xs text-gray-400 mt-0.5">Match Score</div>
+          <button onclick="selectForStrategy(${inf.id})" class="mt-2 text-xs font-medium px-3 py-1.5 rounded-lg border-2 transition hover:text-white hover:border-transparent" style="border-color:${color};color:${color};--hover-bg:${color}" onmouseenter="this.style.background=this.style.borderColor;this.style.color='white'" onmouseleave="this.style.background='';this.style.color='${color}'">
+            Get Strategy →
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function scoreBar(label, val, color) {
+  const pct = Math.round(val * 100);
+  return `
+    <div>
+      <div class="flex justify-between text-xs mb-0.5">
+        <span class="text-gray-500">${label}</span>
+        <span class="font-semibold" style="color:${color}">${pct}%</span>
+      </div>
+      <div class="w-full bg-gray-100 rounded-full" style="height:5px">
+        <div class="h-full rounded-full" style="width:${pct}%;background:${color};transition:width 1.2s ease"></div>
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════
+// ROI SIMULATOR
+// ══════════════════════════════════════════
+function buildROISelectors() {
+  const sel = document.getElementById('roi-influencer');
+  sel.innerHTML = computedMatches.slice(0,5).map((inf,i) =>
+    `<option value="${inf.id}">#${i+1} ${inf.name} (${formatNum(inf.subs)} subs)</option>`
+  ).join('');
+  document.getElementById('roi-budget').value = brandState.budget;
+  document.getElementById('roi-budget-label').textContent = '$' + brandState.budget.toLocaleString();
+}
+
+function calcROI() {
+  const infId   = parseInt(document.getElementById('roi-influencer').value);
+  const budget  = parseInt(document.getElementById('roi-budget').value);
+  const ctr     = parseFloat(document.getElementById('roi-ctr').value) / 100;
+  const cvr     = parseFloat(document.getElementById('roi-cvr').value) / 100;
+  const aov     = parseInt(document.getElementById('roi-aov').value);
+  const inf     = INFLUENCERS.find(x => x.id === infId) || computedMatches[0];
+  if (!inf) return;
+
+  const cpm          = CPM_BY_NICHE[inf.niche] || 10;
+  const impressions  = Math.min(Math.round((budget / cpm) * 1000), inf.avgViews);
+  const clicks       = Math.round(impressions * ctr);
+  const conversions  = Math.round(clicks * cvr);
+  const revenue      = conversions * aov;
+  const roi          = revenue > 0 ? ((revenue - budget) / budget) * 100 : -100;
+  const roiLow       = roi * 0.7;
+  const roiHigh      = roi * 1.3;
+
+  document.getElementById('roi-impressions').textContent  = formatNum(impressions);
+  document.getElementById('roi-clicks').textContent       = formatNum(clicks);
+  document.getElementById('roi-conversions').textContent  = formatNum(conversions);
+  document.getElementById('roi-revenue').textContent      = '$' + formatNum(revenue);
+  document.getElementById('roi-pct').textContent          = roi.toFixed(0) + '%';
+  document.getElementById('roi-pct').style.color          = roi >= 0 ? '#10b981' : '#ef4444';
+  document.getElementById('roi-range').textContent        = `Confidence range: ${roiLow.toFixed(0)}% – ${roiHigh.toFixed(0)}%`;
+
+  // Funnel
+  document.getElementById('roi-funnel').innerHTML = [
+    { label:'Impressions', val:impressions, pct:100,       color:'#6366f1' },
+    { label:'Clicks',      val:clicks,      pct:ctr*100,   color:'#8b5cf6' },
+    { label:'Conversions', val:conversions, pct:cvr*100,   color:'#a855f7' },
+    { label:'Revenue',     val:'$'+formatNum(revenue), pct:null, color:'#10b981' },
+  ].map(row => `
+    <div class="flex items-center gap-3">
+      <div class="w-24 text-xs text-gray-500 text-right flex-shrink-0">${row.label}</div>
+      <div class="flex-1 bg-gray-100 rounded-full h-6 relative overflow-hidden">
+        <div class="h-full rounded-full flex items-center px-3" style="width:${row.pct||100}%;background:${row.color};min-width:60px;transition:width 0.8s ease">
+          <span class="text-xs text-white font-semibold">${typeof row.val==='number'?formatNum(row.val):row.val}</span>
+        </div>
+      </div>
+      ${row.pct!==null ? `<div class="text-xs text-gray-400 w-10 flex-shrink-0">${row.pct.toFixed(1)}%</div>` : '<div class="w-10"></div>'}
+    </div>
+  `).join('');
+
+  // ROI chart
+  const canvas = document.getElementById('roi-chart');
+  if (roiChart) roiChart.destroy();
+  roiChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: ['Low Estimate', 'Expected ROI', 'High Estimate'],
+      datasets: [{
+        data: [roiLow, roi, roiHigh],
+        backgroundColor: ['#c7d2fe','#6366f1','#818cf8'],
+        borderRadius: 8,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { callback: v => v + '%', font:{size:11} }, grid: { color:'#f1f5f9' } },
+        x: { grid: { display: false }, ticks: { font:{size:11} } }
+      }
+    }
+  });
+}
+
+// ══════════════════════════════════════════
+// CONTENT STRATEGY
+// ══════════════════════════════════════════
+function buildStrategySelector() {
+  const top5 = computedMatches.slice(0,5);
+  document.getElementById('strategy-selector').innerHTML = top5.map((inf,i) => {
+    const color = NICHE_COLORS[inf.niche] || '#94a3b8';
+    return `
+    <button onclick="showStrategy(${inf.id})" id="strat-btn-${inf.id}" class="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-indigo-300 transition text-left">
+      <div class="w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style="background:${color}">${inf.avatar}</div>
+      <div>
+        <div class="text-sm font-semibold text-gray-800">${inf.name}</div>
+        <div class="text-xs text-gray-400">#${i+1} match · ${inf.niche}</div>
+      </div>
+    </button>`;
+  }).join('');
+}
+
+function showStrategy(infId) {
+  const inf = INFLUENCERS.find(x => x.id === infId);
+  if (!inf) return;
+  const cat = brandState.category;
+  const stratFn = CONTENT_STRATEGIES[cat];
+  const strat = stratFn ? stratFn(inf) : null;
+  if (!strat) return;
+
+  // Highlight selected button
+  document.querySelectorAll('[id^="strat-btn-"]').forEach(b => {
+    b.classList.remove('border-indigo-400','bg-indigo-50');
+    b.classList.add('border-gray-200');
+  });
+  const btn = document.getElementById('strat-btn-' + infId);
+  if (btn) { btn.classList.add('border-indigo-400','bg-indigo-50'); btn.classList.remove('border-gray-200'); }
+
+  const color = NICHE_COLORS[inf.niche] || '#6366f1';
+
+  document.getElementById('strategy-output').innerHTML = `
+  <div class="space-y-4 fade-in">
+    <!-- Header -->
+    <div class="card p-5 flex items-center gap-4">
+      <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-xl font-bold flex-shrink-0" style="background:${color}">${inf.avatar}</div>
+      <div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-bold text-gray-900 text-lg">${inf.name}</span>
+          <span class="text-xs font-medium px-2 py-0.5 rounded-full" style="background:${color}22;color:${color}">${inf.niche}</span>
+        </div>
+        <div class="text-sm text-gray-500">${inf.handle} · ${formatNum(inf.subs)} subs · ${inf.uploadFreq}x/week · ${inf.style} style</div>
+      </div>
+      <div class="ml-auto text-right">
+        <div class="text-xs text-gray-400">AI Content Strategy for</div>
+        <div class="font-bold text-indigo-600">${brandState.brand}</div>
+        <div class="text-xs text-gray-400">${brandState.category}</div>
+      </div>
+    </div>
+
+    <!-- Content Concepts -->
+    <div class="card p-6">
+      <div class="flex items-center gap-2 mb-4">
+        <div class="w-6 h-6 rounded-lg flex items-center justify-center text-white text-xs font-bold" style="background:${color}">1</div>
+        <h4 class="font-bold text-gray-900">Sponsorship Content Concepts</h4>
+      </div>
+      <div class="space-y-3">
+        ${strat.concepts.map((c,i) => `
+          <div class="flex gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
+            <div class="w-7 h-7 rounded-full bg-white border-2 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5" style="border-color:${color};color:${color}">0${i+1}</div>
+            <p class="text-sm text-gray-700 leading-relaxed">${c}</p>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-4">
+      <!-- Format -->
+      <div class="card p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-6 h-6 rounded-lg flex items-center justify-center text-white text-xs font-bold" style="background:${color}">2</div>
+          <h4 class="font-semibold text-gray-900 text-sm">Recommended Format</h4>
+        </div>
+        <p class="text-sm text-gray-600 leading-relaxed">${strat.format}</p>
+      </div>
+
+      <!-- Angles -->
+      <div class="card p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-6 h-6 rounded-lg flex items-center justify-center text-white text-xs font-bold" style="background:${color}">3</div>
+          <h4 class="font-semibold text-gray-900 text-sm">Key Messaging Angles</h4>
+        </div>
+        <ul class="space-y-1.5">
+          ${strat.angles.map(a => `<li class="text-sm text-gray-600 flex items-start gap-2"><span style="color:${color}" class="mt-0.5 flex-shrink-0">▸</span>${a}</li>`).join('')}
+        </ul>
+      </div>
+
+      <!-- Timing -->
+      <div class="card p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-6 h-6 rounded-lg flex items-center justify-center text-white text-xs font-bold" style="background:${color}">4</div>
+          <h4 class="font-semibold text-gray-900 text-sm">Suggested Posting Timing</h4>
+        </div>
+        <p class="text-sm text-gray-600 leading-relaxed">${strat.timing}</p>
+      </div>
+    </div>
+
+    <div class="text-xs text-gray-400 px-1">* Strategy generated by AI based on influencer channel profile and brand category. Adjust based on actual campaign brief and influencer preferences.</div>
+  </div>`;
+}
+
+function selectForStrategy(infId) {
+  switchTab('strategy');
+  setTimeout(() => showStrategy(infId), 100);
+}
+
+// ══════════════════════════════════════════
+// TAB SWITCHING
+// ══════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.remove('active');
+    b.classList.add('text-gray-600');
+  });
+  document.getElementById('tab-' + name).classList.add('active');
+  const btn = document.getElementById('tab-btn-' + name);
+  if (btn) { btn.classList.add('active'); btn.classList.remove('text-gray-600'); }
+}
+
+// ══════════════════════════════════════════
+// D3 SNA GRAPH
+// ══════════════════════════════════════════
+function buildSNAGraph() {
+  const container = document.getElementById('sna-graph');
+  if (!container) return;
+  container.innerHTML = '';
+  const W = container.offsetWidth || 600;
+  const H = container.offsetHeight || 420;
+
+  const nodes = INFLUENCERS.map(inf => ({
+    id: inf.id, name: inf.name, niche: inf.niche,
+    subs: inf.subs, betweenness: inf.betweenness,
+    engRate: inf.engRate, handle: inf.handle,
+    avgViews: inf.avgViews,
+  }));
+
+  const links = EDGES.map(e => ({ source: e.s, target: e.t, weight: e.w }));
+
+  const svg = d3.select('#sna-graph').append('svg')
+    .attr('width', W).attr('height', H);
+
+  // Arrow marker
+  svg.append('defs').append('marker')
+    .attr('id','arrow').attr('viewBox','0 -5 10 10')
+    .attr('refX',18).attr('refY',0)
+    .attr('markerWidth',6).attr('markerHeight',6)
+    .attr('orient','auto')
+    .append('path').attr('d','M0,-5L10,0L0,5').attr('fill','#d1d5db');
+
+  const sim = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).id(d => d.id).distance(90))
+    .force('charge', d3.forceManyBody().strength(-200))
+    .force('center', d3.forceCenter(W/2, H/2))
+    .force('collision', d3.forceCollide().radius(d => nodeR(d) + 6));
+
+  const link = svg.append('g').selectAll('line').data(links).join('line')
+    .attr('class','link')
+    .attr('stroke-width', d => d.weight * 2);
+
+  const tooltip = document.getElementById('graph-tooltip');
+
+  const node = svg.append('g').selectAll('g').data(nodes).join('g')
+    .attr('class','node')
+    .call(d3.drag()
+      .on('start', (e,d) => { if(!e.active) sim.alphaTarget(0.3).restart(); d.fx=d.x;d.fy=d.y; })
+      .on('drag',  (e,d) => { d.fx=e.x; d.fy=e.y; })
+      .on('end',   (e,d) => { if(!e.active) sim.alphaTarget(0); d.fx=null;d.fy=null; })
+    )
+    .on('mouseover', (e, d) => {
+      tooltip.style.display = 'block';
+      tooltip.innerHTML = `<strong>${d.name}</strong><br>${d.handle}<br>Subscribers: ${formatNum(d.subs)}<br>Avg Views: ${formatNum(d.avgViews)}<br>Betweenness: ${(d.betweenness*100).toFixed(0)}%<br>Engagement: ${d.engRate}%`;
+    })
+    .on('mousemove', (e) => {
+      const rect = container.getBoundingClientRect();
+      tooltip.style.left = (e.clientX - rect.left + 12) + 'px';
+      tooltip.style.top  = (e.clientY - rect.top  - 10) + 'px';
+    })
+    .on('mouseout', () => { tooltip.style.display = 'none'; });
+
+  node.append('circle')
+    .attr('r', d => nodeR(d))
+    .attr('fill', d => NICHE_COLORS[d.niche] || '#94a3b8')
+    .attr('stroke', 'white')
+    .attr('stroke-width', 2)
+    .attr('fill-opacity', 0.85);
+
+  node.append('text')
+    .text(d => d.name.split('').slice(0,2).join(''))
+    .attr('text-anchor','middle').attr('dy','0.35em')
+    .attr('fill','white').attr('font-size','9px').attr('font-weight','700')
+    .style('pointer-events','none');
+
+  sim.on('tick', () => {
+    link
+      .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+      .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+    node.attr('transform', d => `translate(${clamp(d.x,20,W-20)},${clamp(d.y,20,H-20)})`);
+  });
+}
+
+function nodeR(d) {
+  return 10 + Math.sqrt(d.subs / 1000000) * 10;
+}
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+// ══════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════
+function formatNum(n) {
+  if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
+  if (n >= 1000)    return (n/1000).toFixed(0) + 'K';
+  return n.toString();
+}
+</script>
+</body>
+</html>
