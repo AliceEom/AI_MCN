@@ -135,6 +135,7 @@ def _download_gdrive_folder(folder_ref: str, output_dir: Path) -> tuple[list[Pat
 
 
 def ensure_full_data_from_gdrive(data_dir: Path, force: bool = False) -> dict[str, object]:
+    data_dir.mkdir(parents=True, exist_ok=True)
     report: dict[str, object] = {
         "complete": True,
         "downloaded": [],
@@ -183,30 +184,36 @@ def ensure_full_data_from_gdrive(data_dir: Path, force: bool = False) -> dict[st
                     f"or folder env ({FOLDER_ENV_KEYS[0]}/{FOLDER_ENV_KEYS[1]})"
                 )
         else:
-            tmp_dir = Path(tempfile.mkdtemp(prefix="gdrive_full_", dir=str(data_dir)))
-            files, err = _download_gdrive_folder(folder_raw, tmp_dir)
-            if err:
-                report["errors"].append(f"folder download failed: {err}")
-            else:
-                report["folder_used"] = True
-                by_name: dict[str, Path] = {}
-                for p in files:
-                    name = p.name
-                    # Prefer larger file when duplicate names exist.
-                    if name not in by_name or p.stat().st_size > by_name[name].stat().st_size:
-                        by_name[name] = p
-                for _, filename, target in pending_folder:
-                    src = by_name.get(filename)
-                    if not src:
-                        report["errors"].append(f"{filename}: not found in folder download")
-                        continue
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(src, target)
-                    if target.exists() and target.stat().st_size > 0:
-                        report["downloaded"].append(filename)
-                    else:
-                        report["errors"].append(f"{filename}: copy from folder failed")
-            shutil.rmtree(tmp_dir, ignore_errors=True)
+            tmp_dir = None
+            try:
+                tmp_dir = Path(tempfile.mkdtemp(prefix="gdrive_full_", dir=str(data_dir)))
+                files, err = _download_gdrive_folder(folder_raw, tmp_dir)
+                if err:
+                    report["errors"].append(f"folder download failed: {err}")
+                else:
+                    report["folder_used"] = True
+                    by_name: dict[str, Path] = {}
+                    for p in files:
+                        name = p.name
+                        # Prefer larger file when duplicate names exist.
+                        if name not in by_name or p.stat().st_size > by_name[name].stat().st_size:
+                            by_name[name] = p
+                    for _, filename, target in pending_folder:
+                        src = by_name.get(filename)
+                        if not src:
+                            report["errors"].append(f"{filename}: not found in folder download")
+                            continue
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(src, target)
+                        if target.exists() and target.stat().st_size > 0:
+                            report["downloaded"].append(filename)
+                        else:
+                            report["errors"].append(f"{filename}: copy from folder failed")
+            except Exception as e:
+                report["errors"].append(f"folder download failed: {e}")
+            finally:
+                if tmp_dir is not None:
+                    shutil.rmtree(tmp_dir, ignore_errors=True)
 
     required = [data_dir / name for name in DATA_FILES.values()]
     report["complete"] = all(p.exists() and p.stat().st_size > 0 for p in required)

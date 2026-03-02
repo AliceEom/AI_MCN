@@ -39,6 +39,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -55,6 +56,13 @@ warnings.filterwarnings(
     category=FutureWarning,
     module="seaborn",
 )
+# Ensure inline plotting backend in notebook runtimes.
+if "inline" not in str(matplotlib.get_backend()).lower():
+    try:
+        plt.switch_backend("module://matplotlib_inline.backend_inline")
+    except Exception:
+        pass
+print("Matplotlib backend:", matplotlib.get_backend())
 print("Environment ready.")
 
 # %% [markdown]
@@ -1171,14 +1179,35 @@ def enrich_top_candidates(candidates_df: pd.DataFrame, brief: BrandBrief) -> dic
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 os.environ.setdefault(
     "MPLCONFIGDIR",
     str((Path(__file__).resolve().parents[1] / "artifacts" / "cache" / "mpl")),
 )
 import matplotlib
-matplotlib.use("Agg")
+
+
+def _running_in_notebook() -> bool:
+    try:
+        from IPython import get_ipython  # type: ignore
+
+        shell: Any = get_ipython()
+        if shell is None:
+            return False
+        cfg = getattr(shell, "config", {})
+        return "IPKernelApp" in cfg
+    except Exception:
+        return False
+
+
+# In notebook/Colab, keep inline backend for visible plots.
+# In script/server mode, use Agg for file-safe rendering.
+_backend_override = os.environ.get("AI_MCN_MPL_BACKEND", "").strip()
+if _backend_override:
+    matplotlib.use(_backend_override)
+elif not _running_in_notebook():
+    matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -2563,6 +2592,7 @@ def run_pipeline(
 # ===== Begin visualization.py =====
 import os
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -2571,7 +2601,28 @@ os.environ.setdefault(
     str((Path(__file__).resolve().parents[1] / "artifacts" / "cache" / "mpl")),
 )
 import matplotlib
-matplotlib.use("Agg")
+
+
+def _running_in_notebook() -> bool:
+    try:
+        from IPython import get_ipython  # type: ignore
+
+        shell: Any = get_ipython()
+        if shell is None:
+            return False
+        cfg = getattr(shell, "config", {})
+        return "IPKernelApp" in cfg
+    except Exception:
+        return False
+
+
+# In notebook/Colab, keep inline backend for visible plots.
+# In script/server mode, use Agg for file-safe rendering.
+_backend_override = os.environ.get("AI_MCN_MPL_BACKEND", "").strip()
+if _backend_override:
+    matplotlib.use(_backend_override)
+elif not _running_in_notebook():
+    matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 
 
@@ -2745,6 +2796,18 @@ def network_figure(graph: dict, scored_df: pd.DataFrame, top_nodes: int = 120, m
 # ===== End visualization.py
 
 # %%
+# Re-assert inline backend after embedded modules are loaded.
+# (Some modules may set non-interactive backends for file export.)
+import matplotlib
+import matplotlib.pyplot as plt
+if "inline" not in str(matplotlib.get_backend()).lower():
+    try:
+        plt.switch_backend("module://matplotlib_inline.backend_inline")
+    except Exception:
+        pass
+print("Backend after module load:", matplotlib.get_backend())
+
+# %%
 # Ensure required runtime folders exist
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 PLOTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -2877,7 +2940,6 @@ axes[2].set_title("Days Since Publish")
 
 plt.tight_layout()
 plt.show()
-plt.close()
 
 video_keep_ratio = len(prepared.videos) / max(len(videos_raw), 1)
 comment_keep_ratio = len(prepared.comments) / max(len(comments_raw), 1)
@@ -2973,7 +3035,6 @@ sns.histplot(text_demo["tfidf_similarity"], bins=30, color="#7E57C2")
 plt.title("TF-IDF Similarity (Normalized)")
 plt.xlabel("tfidf_similarity")
 plt.show()
-plt.close()
 
 print(f"Mean={float(text_demo['tfidf_similarity'].mean()):.3f}, Median={float(text_demo['tfidf_similarity'].median()):.3f}, P90={float(text_demo['tfidf_similarity'].quantile(0.9)):.3f}")
 
@@ -2998,7 +3059,6 @@ plt.xlabel("TF-IDF Similarity")
 plt.ylabel("Channel")
 plt.tight_layout()
 plt.show()
-plt.close()
 
 # %% [markdown]
 # ### Interpretation for Step 4.5
@@ -3215,7 +3275,6 @@ display(community_table.head(20))
 # Step 5.4: Community distribution chart
 fig = community_figure(channels_net, top_k=15, include_micro=False)
 display(fig)
-plt.close(fig)
 
 # %%
 # Step 5.5: Centrality relationship plot (degree vs betweenness proxy)
@@ -3237,7 +3296,6 @@ plt.xlabel("Degree Centrality")
 plt.ylabel("Betweenness Proxy")
 plt.tight_layout()
 plt.show()
-plt.close()
 
 # %% [markdown]
 # ### Interpretation for Steps 5.3-5.5
@@ -3443,7 +3501,6 @@ if not valid_cv.empty:
 if not ml_artifacts.cv_results.empty:
     fig = model_cv_figure(ml_artifacts.cv_results)
     display(fig)
-    plt.close(fig)
 
 # %%
 # Step 7.3b: Predicted vs actual diagnostics (best model)
@@ -3475,7 +3532,6 @@ else:
     plt.ylabel("Predicted")
     plt.tight_layout()
     plt.show()
-    plt.close()
 
 # %% [markdown]
 # ### Interpretation for Steps 7.3-7.3b
@@ -3549,7 +3605,6 @@ display(
 if not top10_df.empty:
     fig = score_breakdown_figure(top10_df.head(10))
     display(fig)
-    plt.close(fig)
 
 # %%
 # Step 8.3b: Final score distribution over all scored channels
@@ -3560,14 +3615,12 @@ plt.xlabel("Final Score")
 plt.ylabel("Number of Channels")
 plt.tight_layout()
 plt.show()
-plt.close()
 
 # %%
 # Step 8.4: Network view of shortlisted ecosystem
 if graph and not scored_df.empty:
     fig = network_figure(graph, scored_df, top_nodes=120, min_edge_weight=2)
     display(fig)
-    plt.close(fig)
 
 # %%
 # Step 8.4b: Community mix in Top-10 shortlist
@@ -3585,7 +3638,6 @@ if not top10_df.empty:
     plt.ylabel("Channels in Top-10")
     plt.tight_layout()
     plt.show()
-    plt.close()
 
 # %%
 # Step 8.5: Concise decision summary for the #1 recommendation
@@ -3635,7 +3687,6 @@ display(roi_df)
 # Step 9.2: ROI funnel visualization
 fig = roi_funnel_figure(roi.to_dict())
 display(fig)
-plt.close(fig)
 
 # %%
 # Step 9.3: Scenario comparison
@@ -3666,7 +3717,6 @@ plt.xlabel("Scenario")
 plt.ylabel("ROAS")
 plt.tight_layout()
 plt.show()
-plt.close()
 
 # %% [markdown]
 # ### Interpretation for Section 9

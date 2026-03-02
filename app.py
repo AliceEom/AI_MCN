@@ -373,6 +373,89 @@ def _plotly_score_breakdown(top_df: pd.DataFrame):
     return fig
 
 
+def _plotly_channel_signal_controls(row: pd.Series) -> tuple[object | None, object | None]:
+    if not PLOTLY_AVAILABLE:
+        return None, None
+
+    signal_rows = [
+        ("SNA", _num(row.get("sna_score"))),
+        ("TF-IDF", _num(row.get("tfidf_similarity"))),
+        ("Semantic", _num(row.get("semantic_score"))),
+        ("Tone", _num(row.get("tone_match_score"))),
+        ("Engagement", _num(row.get("engagement_score"))),
+        ("ML", _num(row.get("ml_potential_score"))),
+    ]
+    signal_df = pd.DataFrame(signal_rows, columns=["metric", "value"])
+    signal_df["value"] = signal_df["value"].clip(lower=0.0, upper=1.0)
+    signal_df["label"] = signal_df["value"].map(lambda v: f"{v:.3f}")
+
+    signal_colors = {
+        "SNA": "#2E6FDC",
+        "TF-IDF": "#4BA3C7",
+        "Semantic": "#4C956C",
+        "Tone": "#F59E0B",
+        "Engagement": "#0EA5A4",
+        "ML": "#A855F7",
+    }
+    signal_fig = px.bar(
+        signal_df,
+        x="value",
+        y="metric",
+        orientation="h",
+        color="metric",
+        color_discrete_map=signal_colors,
+        text="label",
+    )
+    signal_fig.update_layout(
+        title="Signal Breakdown",
+        xaxis_title="Score (0-1)",
+        yaxis_title="",
+        showlegend=False,
+        height=280,
+        margin=dict(l=10, r=8, t=38, b=8),
+    )
+    signal_fig.update_xaxes(range=[0, 1])
+    signal_fig.update_yaxes(categoryorder="array", categoryarray=list(reversed(signal_df["metric"].tolist())))
+    signal_fig.update_traces(textposition="outside", cliponaxis=False)
+
+    control_rows = [
+        ("Base", _num(row.get("final_score_base"))),
+        ("Final", _num(row.get("display_score", row.get("final_score")))),
+        ("Reliability", _num(row.get("credibility_multiplier"))),
+    ]
+    control_df = pd.DataFrame(control_rows, columns=["metric", "value"])
+    control_df["value"] = control_df["value"].clip(lower=0.0, upper=1.0)
+    control_df["label"] = control_df["value"].map(lambda v: f"{v:.3f}")
+
+    control_colors = {
+        "Base": "#64748B",
+        "Final": "#1B8F5A",
+        "Reliability": "#F59E0B",
+    }
+    control_fig = px.bar(
+        control_df,
+        x="value",
+        y="metric",
+        orientation="h",
+        color="metric",
+        color_discrete_map=control_colors,
+        text="label",
+    )
+    control_fig.update_layout(
+        title="Score Controls",
+        xaxis_title="Value (0-1)",
+        yaxis_title="",
+        showlegend=False,
+        height=280,
+        margin=dict(l=10, r=8, t=38, b=8),
+    )
+    control_fig.update_xaxes(range=[0, 1])
+    control_fig.update_yaxes(categoryorder="array", categoryarray=list(reversed(control_df["metric"].tolist())))
+    control_fig.update_traces(textposition="outside", cliponaxis=False)
+
+    return signal_fig, control_fig
+
+
 def _plotly_community(counts: pd.DataFrame):
     if not PLOTLY_AVAILABLE or counts.empty:
         return None
@@ -878,6 +961,23 @@ def _render_top_matches(result: dict, req: dict) -> None:
             m3.metric("Median Likes", f"{int(_num(row.get('median_likes'))):,}")
             m4.metric("Subscribers (est.)", f"{int(_num(row.get('est_subscribers'))):,}")
             m5.metric("Comments Collected", f"{int(_num(row.get('comment_samples_n', row.get('comments_n')))):,}")
+
+            if PLOTLY_AVAILABLE:
+                signal_fig, control_fig = _plotly_channel_signal_controls(row)
+                cbar1, cbar2 = cols[1].columns(2)
+                if signal_fig is not None:
+                    cbar1.plotly_chart(
+                        signal_fig,
+                        use_container_width=True,
+                        key=f"channel_signal_bar_{rank_idx}_{str(row.get('_channel_id', rank_idx))}",
+                    )
+                if control_fig is not None:
+                    cbar2.plotly_chart(
+                        control_fig,
+                        use_container_width=True,
+                        key=f"channel_control_bar_{rank_idx}_{str(row.get('_channel_id', rank_idx))}",
+                    )
+                    cbar2.markdown(f"**Community ID:** {int(_num(row.get('community_id')))}")
 
             cols[1].markdown(
                 f"**Signal Breakdown:** SNA {_num(row.get('sna_score')):.3f} | TF-IDF {_num(row.get('tfidf_similarity')):.3f} | "

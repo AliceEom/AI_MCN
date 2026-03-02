@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -10,7 +11,28 @@ os.environ.setdefault(
     str((Path(__file__).resolve().parents[1] / "artifacts" / "cache" / "mpl")),
 )
 import matplotlib
-matplotlib.use("Agg")
+
+
+def _running_in_notebook() -> bool:
+    try:
+        from IPython import get_ipython  # type: ignore
+
+        shell: Any = get_ipython()
+        if shell is None:
+            return False
+        cfg = getattr(shell, "config", {})
+        return "IPKernelApp" in cfg
+    except Exception:
+        return False
+
+
+# In notebook/Colab, keep inline backend for visible plots.
+# In script/server mode, use Agg for file-safe rendering.
+_backend_override = os.environ.get("AI_MCN_MPL_BACKEND", "").strip()
+if _backend_override:
+    matplotlib.use(_backend_override)
+elif not _running_in_notebook():
+    matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 
 

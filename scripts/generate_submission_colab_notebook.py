@@ -134,6 +134,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -150,6 +151,13 @@ warnings.filterwarnings(
     category=FutureWarning,
     module="seaborn",
 )
+# Ensure inline plotting backend in notebook runtimes.
+if "inline" not in str(matplotlib.get_backend()).lower():
+    try:
+        plt.switch_backend("module://matplotlib_inline.backend_inline")
+    except Exception:
+        pass
+print("Matplotlib backend:", matplotlib.get_backend())
 print("Environment ready.")
 """
     ))
@@ -167,6 +175,21 @@ Run the code cell once. It defines functions/classes used in all later analysis 
     ))
 
     cells.append(code(core_code))
+
+    cells.append(code(
+        """
+# Re-assert inline backend after embedded modules are loaded.
+# (Some modules may set non-interactive backends for file export.)
+import matplotlib
+import matplotlib.pyplot as plt
+if "inline" not in str(matplotlib.get_backend()).lower():
+    try:
+        plt.switch_backend("module://matplotlib_inline.backend_inline")
+    except Exception:
+        pass
+print("Backend after module load:", matplotlib.get_backend())
+"""
+    ))
 
     cells.append(code(
         """
@@ -337,7 +360,6 @@ axes[2].set_title("Days Since Publish")
 
 plt.tight_layout()
 plt.show()
-plt.close()
 
 video_keep_ratio = len(prepared.videos) / max(len(videos_raw), 1)
 comment_keep_ratio = len(prepared.comments) / max(len(comments_raw), 1)
@@ -457,7 +479,6 @@ sns.histplot(text_demo["tfidf_similarity"], bins=30, color="#7E57C2")
 plt.title("TF-IDF Similarity (Normalized)")
 plt.xlabel("tfidf_similarity")
 plt.show()
-plt.close()
 
 print(f"Mean={float(text_demo['tfidf_similarity'].mean()):.3f}, Median={float(text_demo['tfidf_similarity'].median()):.3f}, P90={float(text_demo['tfidf_similarity'].quantile(0.9)):.3f}")
 """
@@ -488,7 +509,6 @@ plt.xlabel("TF-IDF Similarity")
 plt.ylabel("Channel")
 plt.tight_layout()
 plt.show()
-plt.close()
 """
     ))
 
@@ -729,7 +749,6 @@ display(community_table.head(20))
 # Step 5.4: Community distribution chart
 fig = community_figure(channels_net, top_k=15, include_micro=False)
 display(fig)
-plt.close(fig)
 """
     ))
 
@@ -754,7 +773,6 @@ plt.xlabel("Degree Centrality")
 plt.ylabel("Betweenness Proxy")
 plt.tight_layout()
 plt.show()
-plt.close()
 """
     ))
 
@@ -997,7 +1015,6 @@ if not valid_cv.empty:
 if not ml_artifacts.cv_results.empty:
     fig = model_cv_figure(ml_artifacts.cv_results)
     display(fig)
-    plt.close(fig)
 """
     ))
 
@@ -1032,7 +1049,6 @@ else:
     plt.ylabel("Predicted")
     plt.tight_layout()
     plt.show()
-    plt.close()
 """
     ))
 
@@ -1131,7 +1147,6 @@ Use this table for managerial explanation: each recommendation includes a transp
 if not top10_df.empty:
     fig = score_breakdown_figure(top10_df.head(10))
     display(fig)
-    plt.close(fig)
 """
     ))
 
@@ -1145,7 +1160,6 @@ plt.xlabel("Final Score")
 plt.ylabel("Number of Channels")
 plt.tight_layout()
 plt.show()
-plt.close()
 """
     ))
 
@@ -1155,7 +1169,6 @@ plt.close()
 if graph and not scored_df.empty:
     fig = network_figure(graph, scored_df, top_nodes=120, min_edge_weight=2)
     display(fig)
-    plt.close(fig)
 """
     ))
 
@@ -1176,7 +1189,6 @@ if not top10_df.empty:
     plt.ylabel("Channels in Top-10")
     plt.tight_layout()
     plt.show()
-    plt.close()
 """
     ))
 
@@ -1242,7 +1254,6 @@ display(roi_df)
 # Step 9.2: ROI funnel visualization
 fig = roi_funnel_figure(roi.to_dict())
 display(fig)
-plt.close(fig)
 """
     ))
 
@@ -1279,7 +1290,6 @@ plt.xlabel("Scenario")
 plt.ylabel("ROAS")
 plt.tight_layout()
 plt.show()
-plt.close()
 """
     ))
 
