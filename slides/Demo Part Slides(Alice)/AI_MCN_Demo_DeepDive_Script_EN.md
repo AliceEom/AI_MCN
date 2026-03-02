@@ -27,6 +27,8 @@ They affect filtering, scoring, and ROI simulation."
 "Overview is my quality gate.
 In this BOJ run, we analyzed 42,750 videos and scored 1,089 channels.
 Best ML model is LightGBM.
+Top-10 Community Count means how many different creator clusters are represented in Top-10.
+Higher community count means better shortlist diversity and lower concentration risk.
 I also verify reliability and benchmark before spending decisions."
 
 ### 3) Top Matches

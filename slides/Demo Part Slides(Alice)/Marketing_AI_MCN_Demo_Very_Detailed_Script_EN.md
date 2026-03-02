@@ -99,7 +99,8 @@ Overview, Top Matches, Network Studio, Text Intelligence, ML Studio, ROI Lab, Co
 “Videos Analyzed: total video-level evidence used.
 Channels Scored: creator candidates scored by model.
 Best ML Model: best performer from cross-validation.
-Top-10 Community Count: diversity signal in shortlist.”
+Top-10 Community Count: number of distinct creator communities represented in Top-10.
+Higher count generally means better audience diversity and lower concentration risk.”
 
 ### 3-2. Data Reliability panel
 
@@ -437,4 +438,3 @@ A: “Follower scale is only one signal. We combine relevance, evidence, network
 
 Q: “Is ML required?”
 A: “No. You can disable ML. The app still runs rule-based and text/network scoring. ML adds benchmark depth and explainability.”
-

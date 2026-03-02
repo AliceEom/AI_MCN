@@ -242,6 +242,19 @@ def _ranking_weights(strategy: str, include_ml: bool) -> dict[str, float]:
     return {k: v / total for k, v in w.items()}
 
 
+def _format_score_formula(weights: dict[str, float]) -> str:
+    order = [
+        ("sna", "SNA"),
+        ("tfidf", "TF-IDF"),
+        ("semantic", "Semantic"),
+        ("tone", "Tone"),
+        ("eng", "Engagement"),
+        ("ml", "ML"),
+    ]
+    parts = [f"{weights.get(k, 0.0):.2f}*{label}" for k, label in order if weights.get(k, 0.0) > 0]
+    return " + ".join(parts) if parts else "No active scoring signals"
+
+
 def _apply_ranking_strategy(df: pd.DataFrame, strategy: str, include_ml: bool) -> pd.Series:
     if strategy == "Model Default":
         return df["final_score"].fillna(0.0)
@@ -899,6 +912,38 @@ def _render_top_matches(result: dict, req: dict) -> None:
     default_n = min(max(min_n, req["top_reco_n"]), max_n)
     display_n = f4.slider("Display Top-N", min_value=min_n, max_value=max_n, value=default_n, step=1)
     diversity_preview = f5.checkbox("Diversity Preview", value=True)
+
+    if req["enable_ml"]:
+        default_weights = {
+            "sna": 0.30,
+            "tfidf": 0.20,
+            "semantic": 0.15,
+            "tone": 0.10,
+            "eng": 0.15,
+            "ml": 0.10,
+        }
+    else:
+        default_weights = {
+            "sna": 0.34,
+            "tfidf": 0.24,
+            "semantic": 0.18,
+            "tone": 0.10,
+            "eng": 0.14,
+            "ml": 0.00,
+        }
+
+    active_weights = default_weights if ranking_strategy == "Model Default" else _ranking_weights(ranking_strategy, include_ml=req["enable_ml"])
+    formula_text = _format_score_formula(active_weights)
+    st.markdown(
+        f"<div class='panel'><b>How Match Score Is Calculated</b><br>"
+        f"Base Score = {formula_text}<br>"
+        f"Final Match Score = Base Score × Reliability Multiplier</div>",
+        unsafe_allow_html=True,
+    )
+    st.caption(
+        "Reliability Multiplier automatically down-weights channels with weak evidence "
+        "(few videos, low interaction stability, or limited recent signals)."
+    )
 
     scored["display_score"] = _apply_ranking_strategy(scored, ranking_strategy, include_ml=req["enable_ml"])
     ranked = scored[(scored["display_score"] >= min_match) & (scored["evidence_score"] >= min_evidence)].copy()
