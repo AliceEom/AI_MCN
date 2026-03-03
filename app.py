@@ -457,42 +457,35 @@ def _plotly_channel_signal_controls(row: pd.Series) -> tuple[object | None, obje
     signal_fig.update_yaxes(categoryorder="array", categoryarray=list(reversed(signal_df["metric"].tolist())))
     signal_fig.update_traces(textposition="outside", cliponaxis=False)
 
-    control_rows = [
-        ("Base", _num(row.get("final_score_base"))),
-        ("Final", _num(row.get("display_score", row.get("final_score")))),
-        ("Reliability", _num(row.get("credibility_multiplier"))),
-    ]
-    control_df = pd.DataFrame(control_rows, columns=["metric", "value"])
-    control_df["value"] = control_df["value"].clip(lower=0.0, upper=1.0)
-    control_df["label"] = control_df["value"].map(lambda v: f"{v:.3f}")
+    radar_theta = signal_df["metric"].tolist()
+    radar_r = signal_df["value"].tolist()
+    if radar_theta and radar_r:
+        radar_theta = radar_theta + [radar_theta[0]]
+        radar_r = radar_r + [radar_r[0]]
 
-    control_colors = {
-        "Base": "#64748B",
-        "Final": "#1B8F5A",
-        "Reliability": "#F59E0B",
-    }
-    control_fig = px.bar(
-        control_df,
-        x="value",
-        y="metric",
-        orientation="h",
-        color="metric",
-        color_discrete_map=control_colors,
-        text="label",
+    profile_fig = go.Figure(
+        data=go.Scatterpolar(
+            r=radar_r,
+            theta=radar_theta,
+            fill="toself",
+            line=dict(color="#2E6FDC", width=2),
+            marker=dict(color="#2E6FDC"),
+            opacity=0.75,
+        )
     )
-    control_fig.update_layout(
-        title="Score Controls",
-        xaxis_title="Value (0-1)",
-        yaxis_title="",
-        showlegend=False,
+    profile_fig.update_layout(
+        title="Signal Profile (Radar)",
         height=280,
-        margin=dict(l=10, r=8, t=38, b=8),
+        margin=dict(l=8, r=8, t=38, b=8),
+        showlegend=False,
+        polar=dict(
+            radialaxis=dict(visible=True, range=[0, 1], tickfont=dict(size=10)),
+            angularaxis=dict(tickfont=dict(size=11)),
+            bgcolor="rgba(245,247,251,0.65)",
+        ),
     )
-    control_fig.update_xaxes(range=[0, 1])
-    control_fig.update_yaxes(categoryorder="array", categoryarray=list(reversed(control_df["metric"].tolist())))
-    control_fig.update_traces(textposition="outside", cliponaxis=False)
 
-    return signal_fig, control_fig
+    return signal_fig, profile_fig
 
 
 def _plotly_community(counts: pd.DataFrame):
@@ -1026,7 +1019,17 @@ def _render_top_matches(result: dict, req: dict) -> None:
                 f"<span class='tag' style='border-color:{ev_color}; color:{ev_color}'>{ev_label}</span>",
                 unsafe_allow_html=True,
             )
-            cols[1].markdown(f"**Final Match Score:** {_num(row.get('display_score')):.3f}")
+            cols[1].markdown(
+                f"""
+<div class="panel" style="padding:10px 14px; margin-bottom:10px;">
+  <div class="muted" style="font-size:0.92rem;">Final Match Score</div>
+  <div style="font-size:2.25rem; font-weight:900; color:#0f2e55; line-height:1.0;">
+    {_num(row.get('display_score')):.3f}
+  </div>
+</div>
+""",
+                unsafe_allow_html=True,
+            )
             cols[1].write(_plain_language_reason(row))
 
             m1, m2, m3, m4, m5 = cols[1].columns(5)
@@ -1037,7 +1040,7 @@ def _render_top_matches(result: dict, req: dict) -> None:
             m5.metric("Comments Collected", f"{int(_num(row.get('comment_samples_n', row.get('comments_n')))):,}")
 
             if PLOTLY_AVAILABLE:
-                signal_fig, control_fig = _plotly_channel_signal_controls(row)
+                signal_fig, profile_fig = _plotly_channel_signal_controls(row)
                 cbar1, cbar2 = cols[1].columns(2)
                 if signal_fig is not None:
                     cbar1.plotly_chart(
@@ -1045,13 +1048,13 @@ def _render_top_matches(result: dict, req: dict) -> None:
                         use_container_width=True,
                         key=f"channel_signal_bar_{rank_idx}_{str(row.get('_channel_id', rank_idx))}",
                     )
-                if control_fig is not None:
+                if profile_fig is not None:
                     cbar2.plotly_chart(
-                        control_fig,
+                        profile_fig,
                         use_container_width=True,
-                        key=f"channel_control_bar_{rank_idx}_{str(row.get('_channel_id', rank_idx))}",
+                        key=f"channel_signal_profile_{rank_idx}_{str(row.get('_channel_id', rank_idx))}",
                     )
-                    cbar2.markdown(f"**Community ID:** {int(_num(row.get('community_id')))}")
+                cbar2.markdown(f"**Community ID:** {int(_num(row.get('community_id')))}")
 
             sig_left, sig_right = cols[1].columns([7, 1])
             sig_left.markdown("**Signal Breakdown**")
