@@ -26,6 +26,7 @@ from src.config import DEFAULT_CONFIG
 from src.orchestrator import run_pipeline
 from src.ranking import select_top_with_diversity
 from src.roi_simulation import simulate_roi
+from src.usecase_planner import build_usecase_plan
 
 
 st.set_page_config(page_title="AI-MCN Demo", layout="wide")
@@ -1590,18 +1591,176 @@ def _render_content_strategy(result: dict, req: dict) -> None:
     if topn.empty:
         st.warning("No recommendations available for strategy generation.")
         return
+
+    required_for_usecase = [
+        "median_views",
+        "final_score",
+        "evidence_score",
+        "tfidf_similarity",
+        "semantic_score",
+        "tone_match_score",
+        "engagement_score",
+        "n_videos",
+    ]
+    missing_cols = [c for c in required_for_usecase if c not in topn.columns]
+
+    plan_result = build_usecase_plan(topn, result.get("roi_result", {}) or {})
+    plan_df = plan_result.plan_df.copy()
+    meta = plan_result.meta
+    if plan_df.empty:
+        st.warning("Use case planner returned an empty result.")
+        return
+
+    st.markdown("### Use Case Engine: How Creators Were Classified")
+    st.markdown(
+        """
+<div class="panel">
+  <b>Business Reading (Simple)</b><br>
+  • <b>Awareness-focused</b> = strong reach + reliable evidence<br>
+  • <b>Conversion-focused</b> = strong fit + engagement + reliable evidence<br>
+  • <b>Pilot/Test</b> = too little evidence (low activity + low reliability)
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        """
+<div class="panel">
+  <b>Formulas Used (Current Run)</b><br>
+  reach_index = log1p(median_views) / max(log1p(median_views))<br>
+  fit_index = 0.55*TF-IDF + 0.30*Semantic + 0.15*Tone<br>
+  awareness_index = 0.70*reach_index + 0.30*evidence_score<br>
+  conversion_index = 0.50*fit_index + 0.30*engagement_score + 0.20*evidence_score<br>
+  allocation_weight = 0.55*final_score + 0.25*evidence_score + 0.20*reach_index (normalized)
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+    if missing_cols:
+        st.info(
+            "Some expected columns were missing, so the planner used safe defaults (0.0) for: "
+            + ", ".join(missing_cols)
+        )
+
+    t1, t2, t3, t4 = st.columns(4)
+    _kv_card(t1, "Awareness Cutoff", f"{_num(meta.awareness_cut):.3f}", "Median awareness_index in current Top-N")
+    _kv_card(t2, "Conversion Cutoff", f"{_num(meta.conversion_cut):.3f}", "Median conversion_index in current Top-N")
+    _kv_card(t3, "Pilot Evidence Cutoff", f"{_num(meta.evidence_cut):.3f}", "Bottom 20% evidence_score threshold")
+    _kv_card(t4, "Pilot Video Cutoff", f"{_num(meta.videos_cut):.1f}", "Bottom 20% n_videos threshold")
+
+    if PLOTLY_AVAILABLE:
+        tier_counts = (
+            plan_df["activation_tier"]
+            .fillna("Balanced")
+            .astype(str)
+            .value_counts()
+            .rename_axis("activation_tier")
+            .reset_index(name="count")
+        )
+        order = ["Awareness-focused", "Conversion-focused", "Balanced", "Pilot/Test"]
+        tier_counts["order"] = tier_counts["activation_tier"].map(lambda x: order.index(x) if x in order else 99)
+        tier_counts = tier_counts.sort_values(["order", "activation_tier"]).reset_index(drop=True)
+        tier_color = {
+            "Awareness-focused": "#2E6FDC",
+            "Conversion-focused": "#1B8F5A",
+            "Balanced": "#F59E0B",
+            "Pilot/Test": "#9A3E3E",
+        }
+
+        vc1, vc2 = st.columns(2)
+        fig_tier = px.bar(
+            tier_counts,
+            x="activation_tier",
+            y="count",
+            color="activation_tier",
+            color_discrete_map=tier_color,
+            hover_data={"count": True},
+        )
+        fig_tier.update_layout(
+            title="Use Case 1: Tier Distribution",
+            xaxis_title="Activation Tier",
+            yaxis_title="Creators",
+            showlegend=False,
+            margin=dict(l=10, r=10, t=50, b=10),
+        )
+        vc1.plotly_chart(fig_tier, use_container_width=True, key="usecase_tier_distribution")
+
+        scatter_df = plan_df.copy()
+        scatter_df["activation_tier"] = scatter_df["activation_tier"].fillna("Balanced").astype(str)
+        scatter_df["plan_budget_usd"] = pd.to_numeric(scatter_df.get("plan_budget_usd", 0), errors="coerce").fillna(0.0)
+        fig_map = px.scatter(
+            scatter_df,
+            x="awareness_index",
+            y="conversion_index",
+            color="activation_tier",
+            size="plan_budget_usd",
+            hover_name="channel_title",
+            hover_data={
+                "content_concept": True,
+                "final_score": ":.3f",
+                "plan_budget_usd": ":,.0f",
+                "plan_conversions": ":,.0f",
+                "awareness_index": ":.3f",
+                "conversion_index": ":.3f",
+            },
+            color_discrete_map=tier_color,
+        )
+        fig_map.update_layout(
+            title="Use Case 2: Role Map (Awareness vs Conversion)",
+            xaxis_title="Awareness Index",
+            yaxis_title="Conversion Index",
+            legend_title="Activation Tier",
+            margin=dict(l=10, r=10, t=50, b=10),
+        )
+        vc2.plotly_chart(fig_map, use_container_width=True, key="usecase_role_map")
+    else:
+        st.info("Plotly is unavailable. Showing table-only fallback for Use Case logic.")
+
+    st.markdown("#### Creator Assignment Table (Current Run)")
+    assign_cols = [
+        "channel_title",
+        "activation_tier",
+        "content_concept",
+        "awareness_index",
+        "conversion_index",
+        "fit_index",
+        "evidence_score",
+        "plan_budget_usd",
+        "plan_conversions",
+        "final_score",
+    ]
+    assign_cols = [c for c in assign_cols if c in plan_df.columns]
+    st.dataframe(plan_df[assign_cols], use_container_width=True)
+    st.download_button(
+        "Download Use Case Plan CSV",
+        data=plan_df.to_csv(index=False),
+        file_name="usecase_plan_current_run.csv",
+        mime="text/csv",
+    )
+
     min_cards = 1 if len(topn) < 3 else 3
-    max_cards = max(min_cards, len(topn))
+    max_cards = max(min_cards, len(plan_df))
     default_cards = min(max(min_cards, req["top_reco_n"]), max_cards)
     count = st.slider("How many strategy cards", min_value=min_cards, max_value=max_cards, value=default_cards, step=1)
     product_name = str(req.get("params", {}).get("product_name", "Product"))
     must_keywords = req.get("params", {}).get("must_keywords", []) or []
 
-    for idx, (_, row) in enumerate(topn.head(count).iterrows(), start=1):
-        cid = str(row["_channel_id"])
+    tier_badge_style = {
+        "Awareness-focused": "background:#e9f2ff;border-color:#97b9ff;color:#1f4fa8",
+        "Conversion-focused": "background:#eaf9f0;border-color:#9fe2ba;color:#146c43",
+        "Balanced": "background:#fff4df;border-color:#f3d399;color:#975f00",
+        "Pilot/Test": "background:#ffecec;border-color:#f0b6b6;color:#8f2d2d",
+    }
+
+    for idx, (_, row) in enumerate(plan_df.head(count).iterrows(), start=1):
+        cid = str(row.get("_channel_id", f"row_{idx}"))
         strategy_text = str(strategies.get(cid, "No strategy generated."))
         blocks = _parse_strategy_blocks(strategy_text)
         hooks = _thumbnail_hooks(product_name, must_keywords, row)
+        tier = str(row.get("activation_tier", "Balanced"))
+        concept = str(row.get("content_concept", "Concept 1 + 3 Mix"))
+        tier_style = tier_badge_style.get(tier, tier_badge_style["Balanced"])
 
         with st.container(border=True):
             left, right = st.columns([1, 2.5])
@@ -1609,8 +1768,15 @@ def _render_content_strategy(result: dict, req: dict) -> None:
             if image_url:
                 left.image(image_url, use_container_width=True)
             left.markdown(f"### #{idx} {row.get('channel_title', 'Creator')}")
+            left.markdown(
+                f"<span class='tag' style='{tier_style}'>{tier}</span>"
+                f"<span class='tag'>{concept}</span>",
+                unsafe_allow_html=True,
+            )
             left.metric("Match Score", f"{_num(row.get('final_score')):.3f}")
             left.metric("Median Views", f"{int(_num(row.get('median_views'))):,}")
+            left.metric("Allocated Budget", f"${int(_num(row.get('plan_budget_usd'))):,}")
+            left.metric("Planned Conversions", f"{int(_num(row.get('plan_conversions'))):,}")
             _link_button(left, "Open Channel", str(row.get("channel_url", "")))
             _link_button(left, "Representative Video", str(row.get("video_url", "")))
 
@@ -1624,6 +1790,48 @@ def _render_content_strategy(result: dict, req: dict) -> None:
                         st.markdown(body)
             else:
                 right.markdown(strategy_text)
+
+            # Small, client-friendly trace of how this campaign structure was assigned.
+            aw_idx = _num(row.get("awareness_index"))
+            cv_idx = _num(row.get("conversion_index"))
+            fit_idx = _num(row.get("fit_index"))
+            ev_idx = _num(row.get("evidence_score"))
+            tone_idx = _num(row.get("tone_match_score"))
+            vids_n = _num(row.get("n_videos"))
+
+            if tier == "Awareness-focused":
+                tier_rule = (
+                    f"awareness_index ({aw_idx:.3f}) >= cutoff ({_num(meta.awareness_cut):.3f}) "
+                    f"and > conversion_index ({cv_idx:.3f})"
+                )
+            elif tier == "Conversion-focused":
+                tier_rule = (
+                    f"conversion_index ({cv_idx:.3f}) >= cutoff ({_num(meta.conversion_cut):.3f})"
+                )
+            elif tier == "Pilot/Test":
+                tier_rule = (
+                    f"evidence_score ({ev_idx:.3f}) <= pilot cutoff ({_num(meta.evidence_cut):.3f}) "
+                    f"and n_videos ({int(vids_n)}) <= pilot cutoff ({_num(meta.videos_cut):.1f})"
+                )
+            else:
+                tier_rule = (
+                    f"neither awareness nor conversion passed primary cutoff strongly "
+                    f"(aw={aw_idx:.3f}, cv={cv_idx:.3f})"
+                )
+
+            strategy_source = "Template fallback" if "Generated for:" in strategy_text else "LLM-generated (cached)"
+            right.markdown("##### How This Structure Was Computed")
+            right.caption(
+                f"Tier decision: **{tier}** because {tier_rule}."
+            )
+            right.caption(
+                f"Concept decision: **{concept}** from tier mapping + tone rule "
+                f"(fit_index={fit_idx:.3f}, tone={tone_idx:.3f})."
+            )
+            right.caption(
+                f"Content text source: **{strategy_source}**. The card combines role assignment "
+                "with generated concept copy and posting windows."
+            )
 
             right.markdown("#### Creative Thumbnail Hooks")
             h1, h2, h3 = right.columns(3)

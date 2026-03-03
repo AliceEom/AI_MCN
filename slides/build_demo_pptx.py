@@ -3,13 +3,14 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import PP_ALIGN
 from pptx.util import Inches, Pt
+
+from src.usecase_planner import build_usecase_plan
 
 ROOT = Path(__file__).resolve().parents[1]
 SLIDES_DIR = ROOT / "slides"
@@ -171,115 +172,7 @@ def _load_inputs() -> tuple[pd.DataFrame, pd.DataFrame, dict, str]:
 
 
 def _build_channel_plan(top: pd.DataFrame, roi: dict) -> pd.DataFrame:
-    plan = top.copy()
-
-    if plan.empty:
-        return plan
-
-    plan["_reach_index"] = np.log1p(plan["median_views"].fillna(0.0))
-    max_reach = float(plan["_reach_index"].max()) if float(plan["_reach_index"].max()) > 0 else 1.0
-    plan["_reach_index"] = plan["_reach_index"] / max_reach
-
-    weight = (
-        0.55 * plan["final_score"].fillna(0.0)
-        + 0.25 * plan["evidence_score"].fillna(0.0)
-        + 0.20 * plan["_reach_index"].fillna(0.0)
-    ).clip(lower=0.0)
-    if float(weight.sum()) <= 0:
-        weight = pd.Series(np.ones(len(plan)), index=plan.index)
-    weight = weight / float(weight.sum())
-
-    budget = float(roi.get("budget_usd", 50000.0))
-    clicks = float(roi.get("clicks", 49999.0))
-    conv = float(roi.get("conversions", 1499.0))
-    rev = float(roi.get("revenue", 56962.0))
-
-    plan["plan_budget_usd"] = (weight * budget).round(0)
-    plan["plan_clicks"] = (weight * clicks).round(0)
-    plan["plan_conversions"] = (weight * conv).round(0)
-    plan["plan_revenue_usd"] = (weight * rev).round(0)
-
-    # Adaptive role split:
-    # Use relative strength in current Top-10 so slides always show practical role buckets.
-    plan["fit_index"] = (
-        0.55 * plan["tfidf_similarity"].fillna(0.0)
-        + 0.30 * plan["semantic_score"].fillna(0.0)
-        + 0.15 * plan["tone_match_score"].fillna(0.0)
-    ).clip(lower=0.0, upper=1.0)
-    plan["awareness_index"] = (
-        0.70 * plan["_reach_index"].fillna(0.0)
-        + 0.30 * plan["evidence_score"].fillna(0.0)
-    ).clip(lower=0.0, upper=1.0)
-    plan["conversion_index"] = (
-        0.50 * plan["fit_index"].fillna(0.0)
-        + 0.30 * plan["engagement_score"].fillna(0.0)
-        + 0.20 * plan["evidence_score"].fillna(0.0)
-    ).clip(lower=0.0, upper=1.0)
-
-    awareness_cut = float(plan["awareness_index"].median())
-    conversion_cut = float(plan["conversion_index"].median())
-    evidence_cut = float(plan["evidence_score"].quantile(0.20))
-    videos_cut = float(plan["n_videos"].quantile(0.20)) if "n_videos" in plan.columns else 0.0
-
-    tiers: list[str] = []
-    for _, r in plan.iterrows():
-        evidence = float(r.get("evidence_score", 0.0))
-        n_videos = float(r.get("n_videos", 0.0))
-        aw = float(r.get("awareness_index", 0.0))
-        cv = float(r.get("conversion_index", 0.0))
-
-        if (evidence <= evidence_cut) and (n_videos <= videos_cut):
-            tiers.append("Pilot/Test")
-        elif (aw >= awareness_cut) and (aw > cv):
-            tiers.append("Awareness-focused")
-        elif cv >= conversion_cut:
-            tiers.append("Conversion-focused")
-        else:
-            tiers.append("Balanced")
-
-    plan["activation_tier"] = tiers
-
-    # Guarantee at least one channel in Awareness/Conversion for deck readability.
-    if "Awareness-focused" not in set(plan["activation_tier"].tolist()):
-        aw_idx = plan["awareness_index"].idxmax()
-        plan.loc[aw_idx, "activation_tier"] = "Awareness-focused"
-
-    if "Conversion-focused" not in set(plan["activation_tier"].tolist()):
-        remaining = plan[plan["activation_tier"] != "Awareness-focused"]
-        if not remaining.empty:
-            cv_idx = remaining["conversion_index"].idxmax()
-        else:
-            cv_idx = plan["conversion_index"].idxmax()
-        plan.loc[cv_idx, "activation_tier"] = "Conversion-focused"
-
-    concept = []
-    for _, r in plan.iterrows():
-        tier = r["activation_tier"]
-        tone = float(r.get("tone_match_score", 0.0))
-        if tier == "Conversion-focused":
-            concept.append("Concept 2 (Results Comparison)")
-        elif tier == "Awareness-focused":
-            concept.append("Concept 1 (Daily Routine)")
-        elif tone >= 0.4:
-            concept.append("Concept 3 (Q&A Conversion Hook)")
-        else:
-            concept.append("Concept 1 + 3 Mix")
-    plan["content_concept"] = concept
-
-    prod = []
-    for _, r in plan.iterrows():
-        tier = r["activation_tier"]
-        if tier == "Awareness-focused":
-            prod.append("Relief Sun SPF + Glow Serum (hero awareness)")
-        elif tier == "Conversion-focused":
-            prod.append("Relief Sun SPF + Glow Serum (proof angle)")
-        elif tier == "Pilot/Test":
-            prod.append("Relief Sun SPF + Glow Serum mini-trial CTA")
-        else:
-            prod.append("Relief Sun SPF + Glow Serum (education + social proof)")
-    plan["product_plan"] = prod
-
-    return plan
+    return build_usecase_plan(top, roi).plan_df
 
 
 def _risk_lines(memo_text: str, max_items: int = 6) -> list[str]:
