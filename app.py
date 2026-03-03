@@ -38,7 +38,7 @@ SIGNAL_GUIDE = [
     ("Semantic", "Meaning-level alignment beyond exact keywords (topic/context similarity)."),
     ("Tone", "Style/voice compatibility with the campaign intent (e.g., educational vs. review)."),
     ("Engagement", "Observed response quality from likes/comments relative to views."),
-    ("ML", "Predicted upside from benchmark ML models (set to 0 when ML block is disabled)."),
+    ("ML", "Predicted engagement potential from ML models (0 when ML block is disabled)."),
 ]
 
 
@@ -1357,6 +1357,18 @@ def _render_ml_studio(result: dict, req: dict) -> None:
     st.markdown(
         "For client communication: this block validates whether advanced models materially improve prediction over a simple baseline."
     )
+    st.markdown(
+        """
+<div class="panel">
+  <b>What ML predicts in this app</b><br>
+  • Unit of prediction: <b>video-level engagement potential</b><br>
+  • Target used for training: <code>engagement_target = log1p((likes + comments + 1) / (views + 100))</code><br>
+  • After training, video predictions are aggregated to channel-level median, then scaled to 0-1 as <b>ML Potential</b><br>
+  • This ML Potential is one input signal in Top Matches (it is not a direct sales or revenue forecast)
+</div>
+""",
+        unsafe_allow_html=True,
+    )
     st.caption("Interactive mode: choose a model set and re-run the pipeline from this tab.")
 
     chosen_models = st.multiselect(
@@ -1418,6 +1430,9 @@ def _render_ml_studio(result: dict, req: dict) -> None:
         m2.metric("RMSE", f"{_num(row.iloc[0]['rmse_mean']):.4f}")
         m3.metric("MAE", f"{_num(row.iloc[0]['mae_mean']):.4f}")
         m4.metric("R2", f"{_num(row.iloc[0]['r2_mean']):.4f}")
+        st.caption(
+            "How to read this: lower RMSE/MAE means better prediction error; higher R2 means better explanatory fit."
+        )
 
     for note in result.get("ml_notes", []):
         st.info(note)
@@ -1892,7 +1907,7 @@ def _render_glossary() -> None:
         ("Semantic Score", "Meaning-level alignment between brand and creator content."),
         ("Tone Match", "Style/voice compatibility between creator and brand."),
         ("Engagement Score", "Observed response quality from likes/comments relative to views."),
-        ("ML Potential", "Predicted upside when ML benchmark is enabled."),
+        ("ML Potential", "Channel-level engagement potential predicted by ML from video behavior features."),
         ("Reliability Multiplier", "Automatic penalty for weak-evidence channels."),
         ("Community ID", "Cluster label used to preserve diversity."),
     ]
